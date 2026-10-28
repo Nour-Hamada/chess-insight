@@ -1,6 +1,7 @@
 import { Chess } from 'chess.js';
 import { getPieceSvg } from './pieces.js';
 import './style.css';
+import { winChance, toUci, classifyMove, parseEngineLine } from './review.js';
 
 const START_FEN = new Chess().fen();
 const DEMO = `[Event "Chess Insight Demo"]
@@ -13,16 +14,16 @@ const DEMO = `[Event "Chess Insight Demo"]
 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6?? 4. Qxf7# 1-0`;
 
 const LABELS = [
-  ['brilliant', 'عبقرية (Brilliant)', '!!', '#21bcc7'],
-  ['great', 'رائعة (Great)', '!', '#5b8bb0'],
-  ['book', 'افتتاحية (Book)', '📖', '#d5a47e'],
-  ['best', 'الأفضل (Best)', '★', '#81b64c'],
-  ['excellent', 'ممتازة (Excellent)', '👍', '#96bc76'],
-  ['good', 'جيدة (Good)', '✓', '#86b59b'],
-  ['inaccuracy', 'عدم دقة (Inaccuracy)', '?!', '#f7c631'],
-  ['mistake', 'خطأ (Mistake)', '?', '#ffa459'],
-  ['miss', 'إضاعة فرصة (Miss)', '✖', '#fa7069'],
-  ['blunder', 'هفوة فادحة (Blunder)', '??', '#fa412d'],
+  ['brilliant', 'عبقرية', '!!', '#21bcc7'],
+  ['great', 'رائعة', '!', '#5b8bb0'],
+  ['book', 'افتتاحية', '📖', '#d5a47e'],
+  ['best', 'الأفضل', '★', '#81b64c'],
+  ['excellent', 'ممتازة', '👍', '#96bc76'],
+  ['good', 'جيدة', '✓', '#86b59b'],
+  ['inaccuracy', 'عدم دقة', '?!', '#f7c631'],
+  ['mistake', 'خطأ', '?', '#ffa459'],
+  ['miss', 'إضاعة فرصة', '✖', '#fa7069'],
+  ['blunder', 'هفوة فادحة', '??', '#fa412d'],
 ];
 
 const byId = id => document.getElementById(id);
@@ -35,6 +36,9 @@ let readyPromise = null;
 let runId = 0;
 let abortRequested = false;
 let analyses = null;
+let analysisRunning = false;
+let hintRunning = false;
+let searchRunning = false;
 let currentHint = null; // { fen, uci, from, to, san, cpText }
 let lastRenderedPosition = 0;
 let audioContext = null;
@@ -104,7 +108,7 @@ function resetResults() {
 }
 
 function loadGame(pgn) {
-  if (worker && abortRequested === false && readyPromise) cancelAnalysis();
+  if (analysisRunning) cancelAnalysis();
   game = computeGames(pgn);
   currentPgn = pgn.trim();
   runId++;
@@ -417,7 +421,7 @@ function renderMoves() {
       btn.type = 'button';
       btn.className = 'move-chip' + (position === j + 1 ? ' active' : '');
       btn.title = info
-        ? `دقة تقديرية ${formatNum(info.accuracy)}% · فقد ${info.cpLoss} سنتيبون`
+        ? `دقة تقديرية ${formatNum(info.accuracy)}% · انخفاض فرص الفوز ${formatNum(info.winLoss)} نقطة مئوية`
         : 'انقر لعرض هذه النقلة';
 
       btn.addEventListener('click', () => {
@@ -439,7 +443,7 @@ function renderMoves() {
           marker.style.color = lbl[3];
           marker.textContent = lbl[2];
           btn.appendChild(marker);
-          btn.title = `${lbl[1]} · دقة ${formatNum(info.accuracy)}% · فقد ${info.cpLoss} سنتيبون`;
+          btn.title = `${lbl[1]} · دقة ${formatNum(info.accuracy)}% · انخفاض فرص الفوز ${formatNum(info.winLoss)} نقطة مئوية`;
         }
       }
       row.appendChild(btn);
@@ -617,34 +621,6 @@ function renderAll() {
   renderChart();
 }
 
-function parseUciEval(line, fen) {
-  const match = line.match(/\bscore\s+(cp|mate)\s+(-?\d+)/);
-  if (!match || /\b(?:lowerbound|upperbound)\b/.test(line)) return null;
-  let cp;
-  if (match[1] === 'cp') {
-    cp = Number(match[2]);
-  } else {
-    const distance = Number(match[2]);
-    cp = distance === 0 ? -10000 : Math.sign(distance) * (10000 - Math.min(100, Math.abs(distance)) * 50);
-  }
-  const turn = fen.split(' ')[1];
-  return (turn === 'w' ? 1 : -1) * cp;
-}
-
-function parseUciEvalFallback(line, fen) {
-  const match = line.match(/\bscore\s+(cp|mate)\s+(-?\d+)/);
-  if (!match) return null;
-  let cp;
-  if (match[1] === 'cp') {
-    cp = Number(match[2]);
-  } else {
-    const distance = Number(match[2]);
-    cp = distance === 0 ? -10000 : Math.sign(distance) * (10000 - Math.min(100, Math.abs(distance)) * 50);
-  }
-  const turn = fen.split(' ')[1];
-  return (turn === 'w' ? 1 : -1) * cp;
-}
-
 function waitForEngine(target, command, timeoutMs = 30000) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -703,73 +679,58 @@ async function ensureEngine() {
   }
 }
 
-function analyzePosition(fen, depth) {
+function analyzePosition(fen, depth, { multiPv = 1, searchMove = null, positionCommand = null } = {}) {
+  if (searchRunning) return Promise.reject(new Error('المحرك مشغول بتحليل آخر.'));
   const board = new Chess(fen);
-  if (board.isCheckmate()) {
-    return Promise.resolve({
-      cpWhite: board.turn() === 'w' ? -10000 : 10000,
-      best: '(none)',
-      bestSan: null,
-      depth
-    });
+  if (board.isCheckmate() || board.isDraw()) {
+    return Promise.resolve({ cpWhite: board.isCheckmate() ? (board.turn() === 'w' ? -10000 : 10000) : 0,
+      best: '(none)', bestSan: null, depth, lines: [] });
   }
-  if (board.isDraw()) {
-    return Promise.resolve({
-      cpWhite: 0,
-      best: '(none)',
-      bestSan: null,
-      depth
-    });
-  }
-
+  searchRunning = true;
   return new Promise((resolve, reject) => {
-    let cp = null;
-    let fallbackCp = null;
-    let best = null;
-    let receivedDepth = 0;
-
-    const timeout = setTimeout(() => {
-      cleanup();
-      reject(new Error('انتهى وقت التحليل لهذه الوضعية.'));
-    }, 60000);
-
+    const lines = new Map();
     const cleanup = () => {
       clearTimeout(timeout);
       worker?.removeEventListener('message', listener);
+      searchRunning = false;
     };
-
-    const listener = e => {
-      for (const line of String(e.data || '').split(/\r?\n/)) {
-        if (line.startsWith('info ') && /\bscore\b/.test(line) && !/\bmultipv\s+([2-9]|\d{2,})\b/.test(line)) {
-          const score = parseUciEval(line, fen);
-          if (score !== null) {
-            cp = score;
-            receivedDepth = Number(line.match(/\bdepth\s+(\d+)/)?.[1] || 0);
-          } else {
-            const fallback = parseUciEvalFallback(line, fen);
-            if (fallback !== null) fallbackCp = fallback;
-          }
+    const timeout = setTimeout(() => {
+      cleanup();
+      // A terminated search cannot leak a late bestmove into the next search.
+      worker?.terminate(); worker = null; readyPromise = null;
+      reject(new Error('انتهى وقت التحليل. جرّب العمق السريع أو مباراة أقصر.'));
+    }, 120000);
+    const listener = event => {
+      for (const line of String(event.data || '').split(/\r?\n/)) {
+        const parsed = parseEngineLine(line, fen);
+        if (parsed) {
+          const old = lines.get(parsed.multiPv);
+          if (!old || parsed.depth >= old.depth) lines.set(parsed.multiPv, parsed);
         }
         if (line.startsWith('bestmove ')) {
-          best = line.split(/\s+/)[1];
+          const best = line.split(/\s+/)[1];
+          const primary = [...lines.values()].find(item => item.best === best);
           cleanup();
-          const finalCp = cp !== null ? cp : (fallbackCp !== null ? fallbackCp : 0);
-          const bestSan = uciToSan(fen, best);
-          resolve({ cpWhite: finalCp, best: best || '(none)', bestSan, depth: receivedDepth || depth });
+          if (!primary || !Number.isFinite(primary.cpWhite)) {
+            reject(new Error('لم يعُد المحرك بتقييم موثوق لهذه الوضعية. أعد التحليل.'));
+            return;
+          }
+          const complete = [...lines.values()].filter(item => item.depth === primary.depth);
+          resolve({ ...primary, best, bestSan: uciToSan(fen, best), lines: complete });
           return;
         }
       }
     };
-
     worker.addEventListener('message', listener);
-    worker.postMessage(`position fen ${fen}`);
-    worker.postMessage(`go depth ${depth}`);
+    worker.postMessage(`setoption name MultiPV value ${multiPv}`);
+    worker.postMessage(positionCommand || `position fen ${fen}`);
+    worker.postMessage(`go depth ${depth}${searchMove ? ` searchmoves ${searchMove}` : ''}`);
   });
 }
 
 // Interactive Best Move Calculation for Current Position
 async function showBestMoveHint() {
-  if (!game) return;
+  if (!game || analysisRunning || hintRunning) return;
   currentHint = null;
   renderBoard();
   const fen = game.fens[position];
@@ -779,6 +740,9 @@ async function showBestMoveHint() {
     return;
   }
 
+  hintRunning = true;
+  byId('hint-btn').disabled = true;
+  byId('analyze-btn').disabled = true;
   const turnName = board.turn() === 'w' ? 'الأبيض' : 'الأسود';
   const hintBanner = byId('hint-banner');
   if (hintBanner) {
@@ -788,7 +752,7 @@ async function showBestMoveHint() {
 
   try {
     await ensureEngine();
-    const depth = Number(byId('depth-select').value) || 12;
+    const depth = Number(byId('depth-select').value) || 16;
     const res = await analyzePosition(fen, depth);
 
     if (res.best && res.best !== '(none)') {
@@ -817,63 +781,11 @@ async function showBestMoveHint() {
     }
   } catch (err) {
     if (hintBanner) hintBanner.textContent = 'تعذر حساب أفضل نقلة: ' + err.message;
+  } finally {
+    hintRunning = false;
+    byId('hint-btn').disabled = false;
+    byId('analyze-btn').disabled = false;
   }
-}
-
-function winChance(cp) {
-  return 100 / (1 + Math.exp(-0.00368208 * clamp(cp, -10000, 10000)));
-}
-
-function moveAccuracy(before, after, mover) {
-  const drop = Math.max(0, winChance(before * mover) - winChance(after * mover));
-  return clamp(103.1668 * Math.exp(-0.04354 * drop) - 3.1669, 0, 100);
-}
-
-const COMMON_BOOK_MOVES = new Set([
-  'e2e4', 'e7e5', 'd2d4', 'd7d5', 'c2c4', 'c7c5', 'g1f3', 'b8c6',
-  'g8f6', 'c7c6', 'e7e6', 'g2g3', 'g7g6', 'b1c3', 'f1g2', 'f8g7',
-  'e1g1', 'e8g8', 'd2d3', 'd7d6', 'f2f4', 'f7f5', 'b2b3', 'b7b6',
-  'c1b2', 'c8b7', 'f1e1', 'f8e8', 'a2a3', 'a7a5', 'd1c2', 'd8c7'
-]);
-
-function assignCategory(cpLoss, isEngineTopMove, mover, before, after, moveIndex, uci, san) {
-  // 1. Opening Book
-  if (moveIndex < 8 && cpLoss <= 30 && COMMON_BOOK_MOVES.has(uci)) {
-    return 'book';
-  }
-
-  // 2. Brilliant: Piece sacrifice or winning combination with great outcome
-  if (isEngineTopMove && cpLoss <= 0 && mover * after > 160 && (san.includes('x') || san.includes('+')) && moveIndex > 5) {
-    return 'brilliant';
-  }
-
-  // 3. Great: Critical saving or breakthrough move in difficult/sharp position
-  if (isEngineTopMove && cpLoss <= 8 && Math.abs(after) > 180 && moveIndex > 4) {
-    return 'great';
-  }
-
-  // 4. Best Move
-  if (isEngineTopMove || cpLoss <= 12) return 'best';
-
-  // 5. Excellent Move
-  if (cpLoss <= 28) return 'excellent';
-
-  // 6. Good Move
-  if (cpLoss <= 65) return 'good';
-
-  // 7. Inaccuracy
-  if (cpLoss <= 130) return 'inaccuracy';
-
-  // 8. Mistake
-  if (cpLoss <= 250) return 'mistake';
-
-  // 9. Miss: Blew away a winning advantage (was > +1.8, dropped to drawn or losing)
-  if (mover * before >= 180 && mover * after < 60) {
-    return 'miss';
-  }
-
-  // 10. Blunder
-  return 'blunder';
 }
 
 function aggregateAccuracy(moves, evals, color) {
@@ -892,20 +804,18 @@ function aggregateAccuracy(moves, evals, color) {
   return clamp((harmonic + weighted) / 2, 0, 100);
 }
 
-function buildResult(evals) {
+function buildResult(evals, playedScores) {
   const counts = {
     w: Object.fromEntries(LABELS.map(([k]) => [k, 0])),
     b: Object.fromEntries(LABELS.map(([k]) => [k, 0]))
   };
 
   const moves = game.moves.map((m, i) => {
-    const mover = m.color === 'w' ? 1 : -1;
-    const before = evals[i].cpWhite;
-    const after = evals[i + 1].cpWhite;
-    const cpLoss = Math.round(Math.max(0, mover * (before - after)));
-    const uci = m.from + m.to + (m.promotion || '');
-    const isTopMove = evals[i].best === uci;
-    const category = assignCategory(cpLoss, isTopMove, mover, before, after, i, uci, m.san);
+    const uci = toUci(m);
+    const best = evals[i];
+    const second = best.lines.find(line => line.best !== best.best) || null;
+    const classification = classifyMove({ move: m, best, played: playedScores[i], second, previous: i ? evals[i - 1] : null });
+    const { category, cpLoss } = classification;
     counts[m.color][category]++;
     return {
       index: i,
@@ -914,7 +824,8 @@ function buildResult(evals) {
       uci,
       category,
       cpLoss,
-      accuracy: moveAccuracy(before, after, mover),
+      accuracy: classification.accuracy,
+      winLoss: classification.winLoss,
       best: evals[i].best,
       bestSan: evals[i].bestSan
     };
@@ -952,8 +863,14 @@ function displayResults() {
 }
 
 function setAnalyzing(active) {
+  analysisRunning = active;
+  byId('hint-btn').disabled = active;
+  byId('open-pgn-btn').disabled = active;
+  byId('pgn-modal-file').disabled = active;
+  byId('depth-select').disabled = active;
   byId('analyze-btn').hidden = active;
   byId('cancel-btn').hidden = !active;
+  byId('cancel-btn').disabled = false;
   byId('load-btn').disabled = active;
   byId('demo-btn').disabled = active;
   byId('pgn-file').disabled = active;
@@ -968,6 +885,7 @@ function updateProgress(done, total) {
 }
 
 async function startAnalysis() {
+  if (analysisRunning || hintRunning || searchRunning) return;
   const text = byId('pgn-text').value.trim();
   if (!text) {
     status('أدخل نص PGN صحيحاً أولاً.', 'error');
@@ -1000,13 +918,27 @@ async function startAnalysis() {
 
     worker.postMessage('ucinewgame');
     const evals = [];
+    const playedScores = [];
+    const uciMoves = gameSnapshot.moves.map(toUci);
 
     for (let i = 0; i < gameSnapshot.fens.length; i++) {
       if (abortRequested || id !== runId) break;
       const turnName = gameSnapshot.fens[i].split(' ')[1] === 'w' ? 'الأبيض' : 'الأسود';
       const moveNum = Math.floor(i / 2) + 1;
       status(`جارٍ تحليل نقلة ${moveNum} (${turnName}) · الوضعية ${i + 1} من ${gameSnapshot.fens.length} (العمق ${depth})…`);
-      evals.push(await analyzePosition(gameSnapshot.fens[i], depth));
+      const history = uciMoves.slice(0, i).join(' ');
+      const positionCommand = `position fen ${gameSnapshot.fens[0]}${history ? ` moves ${history}` : ''}`;
+      const best = await analyzePosition(gameSnapshot.fens[i], depth, { multiPv: i < uciMoves.length ? 2 : 1, positionCommand });
+      evals.push(best);
+      if (abortRequested || id !== runId) break;
+      if (i < uciMoves.length) {
+        let played = best.lines.find(line => line.best === uciMoves[i]);
+        if (!played) {
+          status(`فحص النقلة الفعلية ${i + 1} من ${uciMoves.length} ومقارنتها بأفضل البدائل…`);
+          played = await analyzePosition(gameSnapshot.fens[i], depth, { searchMove: uciMoves[i], positionCommand });
+        }
+        playedScores.push(played);
+      }
       updateProgress(i + 1, gameSnapshot.fens.length);
       await pause(0);
     }
@@ -1016,12 +948,12 @@ async function startAnalysis() {
       return;
     }
 
-    analyses = buildResult(evals);
+    analyses = buildResult(evals, playedScores);
     displayResults();
     status(`اكتمل تحليل ${gameSnapshot.moves.length} نصف نقلة بنجاح عند عمق ${depth}.`, 'success');
   } catch (err) {
-    status(err.message || 'حدث خطأ أثناء التحليل.', 'error');
-    console.error(err);
+    if (abortRequested) status('تم إيقاف التحليل.', 'warning');
+    else { status(err.message || 'حدث خطأ أثناء التحليل.', 'error'); console.error(err); }
   } finally {
     if (id === runId) setAnalyzing(false);
   }
@@ -1030,8 +962,8 @@ async function startAnalysis() {
 function cancelAnalysis() {
   abortRequested = true;
   worker?.postMessage('stop');
-  setAnalyzing(false);
-  status('تم إيقاف التحليل.', 'warning');
+  byId('cancel-btn').disabled = true;
+  status('جارٍ إيقاف التحليل…', 'warning');
 }
 
 // Modal handling

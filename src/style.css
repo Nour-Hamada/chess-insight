@@ -1342,3 +1342,56 @@ html, body { background: var(--bg-main); }
 .chart-empty { color: #c4c1ba; }
 .eval-chart { display: block; flex: none; touch-action: none; }
 .eval-chart:focus-visible { outline: 2px solid var(--accent-green); outline-offset: -2px; }
+
+/* Readable Arabic typography, with consistent sizes across report and controls. */
+body { font-size: 14px; line-height: 1.65; }
+button, select { line-height: 1.5; }
+.logo-sub, .engine-badge { font-size: 11px; }
+.btn, .header-btn, .tab-btn { font-size: 13px; font-weight: 700; }
+.header-btn { min-height: 36px; height: auto; }
+.player-meta strong { font-size: 15px; }
+.player-meta small { font-size: 11px; }
+.acc-box-name { font-size: 13px; font-weight: 700; }
+.acc-num { font-size: 30px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.acc-num small { font-size: 15px; }
+.acc-lbl, .acc-sub, .chart-tip, .engine-depth label { font-size: 12px; }
+.chart-header h4 { font-size: 13px; }
+.review-title { font-size: 19px; }
+.tab-btn { min-height: 42px; padding: 8px; }
+.tab-content-container { min-height: 240px; max-height: 390px; }
+.coach-bubble { font-size: 13px; line-height: 1.8; font-weight: 600; padding: 10px 12px; }
+.stat-head { font-size: 12px; line-height: 1.7; grid-template-columns: 40px minmax(0, 1fr) 40px; }
+.stat-row { min-height: 39px; grid-template-columns: 40px minmax(0, 1fr) 40px; }
+.stat-count-w, .stat-count-b { font-size: 17px; font-variant-numeric: tabular-nums; }
+.stat-type-title { font-size: 14px; line-height: 1.6; font-weight: 700; }
+.stat-badge-center { min-width: 0; gap: 7px; }
+.stat-circle-icon { width: 24px; height: 24px; font-size: 12px; }
+.method-note { color: var(--text-muted); font-size: 12px; line-height: 1.8; }
+.moves-header-bar { font-size: 12px; }
+.move-chip { min-height: 35px; height: auto; font-size: 14px; padding: 6px 10px; }
+.move-number, .move-counter { font-size: 13px; }
+.move-status-banner, .hint-status-banner { font-size: 13px; line-height: 1.85; min-height: 36px; }
+.move-status-banner { flex-wrap: wrap; overflow-wrap: anywhere; }
+.hint-status-banner { overflow-wrap: anywhere; }
+.engine-depth select { min-height: 36px; font-size: 13px; }
+.engine-controls { flex-wrap: wrap; gap: 10px; }
+.analyze-btn { font-size: 15px; min-height: 46px; }
+.status-msg, .progress-label, .modal-input-hint, .empty-moves { font-size: 12px; line-height: 1.8; }
+.pgn-modal-body textarea { font-size: 14px; }
+.pgn-modal-footer .btn { white-space: normal; }
+@media (max-width: 520px) {
+  .app-header { height: auto; flex-wrap: wrap; gap: 8px; min-height: 54px; }
+  .header-actions { flex-wrap: wrap; }
+  .logo-text strong { font-size: 16px; }
+  .sidebar-column.panel { padding-left: 12px; padding-right: 12px; }
+  .review-title { margin-left: -12px; margin-right: -12px; }
+  .acc-box { padding: 10px 8px; min-width: 0; }
+  .acc-num { font-size: 27px; }
+  .acc-box-top { min-width: 0; }
+  .stat-head, .stat-row { grid-template-columns: 30px minmax(0, 1fr) 30px; }
+  .stat-type-title { font-size: 13px; }
+  .tab-content-container { max-height: 420px; }
+  .engine-depth { flex: 1 0 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .engine-depth select { flex: 1; }
+  .analyze-btn { width: 100%; }
+}
