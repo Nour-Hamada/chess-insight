@@ -2,29 +2,28 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#111419" />
   <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight — تقرير مباراتك المجاني</title>
 </head>
 <body>
   <div class="app-layout">
-    <!-- Header -->
+    <!-- Slim Header (44px) -->
     <header class="app-header">
       <div class="header-brand">
         <div class="logo-mark" aria-hidden="true">♞</div>
         <div class="logo-text">
           <strong>CHESS<span class="logo-accent">INSIGHT</span></strong>
-          <span class="logo-sub">استوديو تحليل المباريات</span>
         </div>
       </div>
 
       <div class="header-actions">
         <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
-          <span class="btn-icon">📋</span> إدخال PGN
+          <span>📋</span> أدخل PGN
         </button>
         <label class="btn btn-secondary header-btn upload-label" for="pgn-file" title="رفع ملف PGN">
-          <span class="btn-icon">↥</span> رفع ملف
+          <span>↥</span> رفع ملف
         </label>
         <input id="pgn-file" type="file" accept=".pgn,text/plain" hidden />
         <div class="engine-badge">
@@ -34,7 +33,7 @@
       </div>
     </header>
 
-    <!-- Main Workspace (Zero Scroll on Desktop) -->
+    <!-- Main Workspace (Zero Window Scroll) -->
     <main class="workspace-grid">
       <!-- Left (or Right in RTL): Board Column -->
       <section class="board-column panel" aria-label="رقعة الشطرنج">
@@ -63,7 +62,7 @@
           <span id="white-mini-score" class="mini-score">—</span>
         </div>
 
-        <!-- Board Controls -->
+        <!-- Board Toolbar Controls -->
         <div class="board-toolbar">
           <div class="board-nav-buttons">
             <button id="first-btn" class="icon-nav-btn" aria-label="أول نقلة" title="البداية (Home)">⏮</button>
@@ -76,12 +75,12 @@
         </div>
 
         <!-- Current Move Banner -->
-        <div id="move-description" class="move-status-banner">شاهد النقلة الحالية وتقييمها هنا</div>
+        <div id="move-description" class="move-status-banner">بداية المباراة</div>
       </section>
 
-      <!-- Right Column: Analysis & Moves Sidebar -->
+      <!-- Right Column: Sidebar (Moves List + Review) -->
       <aside class="sidebar-column panel" aria-label="لوحة التحليل والنقلات">
-        <!-- Accuracy Overview Header -->
+        <!-- Accuracy Cards (Compact Header) -->
         <div class="accuracy-summary">
           <div class="acc-box white-acc-box">
             <div class="acc-box-top">
@@ -121,7 +120,7 @@
           </div>
         </div>
 
-        <!-- Tabs Navigation (Chess.com style) -->
+        <!-- Tabs: Moves List vs Review -->
         <div class="sidebar-tabs" role="tablist">
           <button id="tab-moves-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">
             <span>♟️</span> سجل النقلات
@@ -131,9 +130,9 @@
           </button>
         </div>
 
-        <!-- Tab Content Area (Scrollable Internally) -->
+        <!-- Tab Content Area (Scrolls Internally ONLY) -->
         <div class="tab-content-container">
-          <!-- Moves Tab Pane -->
+          <!-- Moves Tab Pane (Chess.com Table) -->
           <div id="pane-moves" class="tab-pane active" role="tabpanel">
             <div class="moves-header-bar">
               <span class="col-num">#</span>
@@ -145,7 +144,7 @@
             </div>
           </div>
 
-          <!-- Review Tab Pane -->
+          <!-- Review Tab Pane (Coach & Stats) -->
           <div id="pane-review" class="tab-pane" role="tabpanel" hidden>
             <!-- Coach Card -->
             <div class="coach-card">
@@ -153,7 +152,7 @@
                 <div>♟</div><span>✦</span>
               </div>
               <div class="coach-bubble" id="coach-bubble">
-                مرحباً! اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء والهفوات بدقة.
+                اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء بدقة.
               </div>
             </div>
 
@@ -164,7 +163,7 @@
                 <span>الأبيض</span>
                 <span>الأسود</span>
               </div>
-              <div class="stats" id="stats"></div>
+              <div id="stats" class="stats"></div>
             </div>
             <div class="method-note">
               <span aria-hidden="true">ⓘ</span> تُحسب الدقة بخوارزمية احتمالية مستوحاة من Lichess.
@@ -172,7 +171,7 @@
           </div>
         </div>
 
-        <!-- Bottom Controls: Engine depth & Analyze button -->
+        <!-- Sidebar Footer Controls -->
         <div class="sidebar-footer">
           <div class="engine-controls">
             <div class="engine-depth">
@@ -207,7 +206,7 @@
     </main>
   </div>
 
-  <!-- PGN Input Modal Dialog (Keeps workspace clean and scroll-free) -->
+  <!-- PGN Modal Dialog -->
   <dialog id="pgn-modal" class="pgn-dialog">
     <div class="pgn-modal-content panel">
       <div class="pgn-modal-head">

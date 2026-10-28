@@ -263,14 +263,27 @@ function renderMoves() {
   updateActiveMove();
 }
 
+// STRICT LOCAL SCROLL - NEVER SCROLLS THE WINDOW!
 function updateActiveMove() {
   const root = byId('moves-list');
+  if (!root) return;
+  const container = root.closest('.tab-content-container');
   const chips = root.querySelectorAll('.move-chip');
+
   chips.forEach((btn, idx) => {
     const isActive = position === idx + 1;
     btn.classList.toggle('active', isActive);
-    if (isActive) {
-      btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (isActive && container) {
+      // Direct container scroll calculation without touching window scroll!
+      const btnTop = btn.offsetTop;
+      const btnBottom = btnTop + btn.offsetHeight;
+      const cTop = container.scrollTop;
+      const cHeight = container.clientHeight;
+      if (btnTop < cTop + 8) {
+        container.scrollTop = Math.max(0, btnTop - 8);
+      } else if (btnBottom > cTop + cHeight - 8) {
+        container.scrollTop = btnBottom - cHeight + 8;
+      }
     }
   });
 }
@@ -310,20 +323,20 @@ function renderChart() {
   const wrap = byId('chart-wrap');
   if (!analyses?.evals) return;
   const values = analyses.evals.map(e => e.cpWhite);
-  const width = 800, height = 80, pad = 8, mid = 40, usable = width - pad * 2;
+  const width = 800, height = 52, pad = 6, mid = 26, usable = width - pad * 2;
   const x = i => pad + usable * i / Math.max(1, values.length - 1);
-  const y = cp => mid - 32 * Math.tanh(cp / 320);
+  const y = cp => mid - 20 * Math.tanh(cp / 320);
   const points = values.map((v, i) => [x(i), y(v)]);
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
   const area = `${path}L ${x(values.length - 1)},${mid} L ${x(0)},${mid}Z`;
   const cx = x(position), cy = y(values[position]);
 
-  const maxDots = 60;
+  const maxDots = 50;
   const step = Math.max(1, Math.ceil(analyses.moves.length / maxDots));
   const markers = analyses.moves.map((m, i) => {
     if (i % step && i !== position - 1) return '';
     const meta = LABELS.find(l => l[0] === m.category);
-    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 5 : 2.8}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.9"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
+    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 4.5 : 2.5}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.8"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
   }).join('');
 
   wrap.innerHTML = `<svg class="eval-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="منحنى تقييم المباراة، انقر على نقطة للانتقال إليها">
@@ -335,10 +348,10 @@ function renderChart() {
     </defs>
     <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#9ea6a0" stroke-width="1.2"/>
     <path d="${area}" fill="url(#eval-fill)"/>
-    <path d="${path}" fill="none" stroke="#46544d" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${path}" fill="none" stroke="#46544d" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
     ${markers}
-    <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.8" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
-    <circle cx="${cx}" cy="${cy}" r="4.5" fill="#437c5a" stroke="#fff" stroke-width="1.6"/>
+    <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#437c5a" stroke="#fff" stroke-width="1.5"/>
   </svg>`;
 
   const svg = wrap.querySelector('svg');
@@ -843,37 +856,39 @@ byId('flip-btn').addEventListener('click', () => {
   renderBoard();
 });
 
-// Keyboard Navigation
+// STRICT KEYBOARD NAVIGATION - PREVENT DEFAULT WINDOW SCROLL!
 window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
   if (!game) return;
 
-  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+  const navKeys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp', ' '];
+  if (navKeys.includes(e.key)) {
     e.preventDefault();
+    e.stopPropagation();
+  }
+
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
     position = Math.min(game.moves.length, position + 1);
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-    e.preventDefault();
     position = Math.max(0, position - 1);
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'Home') {
-    e.preventDefault();
     position = 0;
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'End') {
-    e.preventDefault();
     position = game.moves.length;
     renderBoard();
     updateActiveMove();
     renderChart();
   }
-});
+}, { passive: false });
 
 // Startup initialization
 byId('pgn-text').value = DEMO;

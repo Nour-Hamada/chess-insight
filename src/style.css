@@ -23,12 +23,20 @@
   box-sizing: border-box;
 }
 
+/* =========================================================
+   STRICT ZERO-SCROLL GLOBAL LOCK
+   ========================================================= */
 html, body {
   margin: 0;
   padding: 0;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  position: fixed;
+  inset: 0;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: manipulation;
   font-family: var(--font-arabic);
   background: radial-gradient(ellipse 720px 500px at 88% -160px, rgba(42, 71, 50, 0.28), transparent),
               radial-gradient(ellipse 700px 420px at -20% 75%, rgba(38, 50, 66, 0.18), transparent),
@@ -52,89 +60,85 @@ button:disabled {
 
 button:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid var(--accent-green);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 [hidden] {
   display: none !important;
 }
 
-/* App Layout Container - Fits 100vh Without Window Scroll */
+/* Fullscreen App Container */
 .app-layout {
-  height: 100vh;
+  height: 100%;
+  height: 100dvh;
   width: 100%;
-  max-width: 1440px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 8px 16px 10px;
+  padding: 6px 12px 6px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden !important;
 }
 
-/* Compact Header */
+/* Ultra-Slim Header (40px) */
 .app-header {
-  height: 50px;
-  min-height: 50px;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
   border-bottom: 1px solid var(--border-light);
-  padding-bottom: 6px;
-  margin-bottom: 8px;
+  padding-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .logo-mark {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
   background: linear-gradient(145deg, #d4f5c2, #9ed4a0);
   color: #172c20;
-  border-radius: 10px;
+  border-radius: 8px;
   display: grid;
   place-items: center;
-  font: normal 28px Georgia, serif;
-  box-shadow: 0 0 20px rgba(145, 220, 156, 0.15);
+  font: normal 22px Georgia, serif;
+  box-shadow: 0 0 16px rgba(145, 220, 156, 0.15);
 }
 
 .logo-text strong {
   display: block;
-  font: 900 17px var(--font-latin);
-  letter-spacing: -0.5px;
-  line-height: 1.1;
+  font: 900 16px var(--font-latin);
+  letter-spacing: -0.4px;
+  line-height: 1;
 }
 
 .logo-accent {
   color: var(--accent-green);
 }
 
-.logo-sub {
-  display: block;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .engine-badge {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 12px;
+  gap: 6px;
+  padding: 4px 10px;
   border: 1px solid var(--border-light);
   background: rgba(255, 255, 255, 0.04);
-  border-radius: 20px;
+  border-radius: 16px;
   color: #bdc8c7;
-  font: 700 10px var(--font-latin);
+  font: 700 9px var(--font-latin);
 }
 
 .live-dot {
@@ -142,40 +146,39 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   height: 6px;
   background: #87d6a7;
   border-radius: 100%;
-  box-shadow: 0 0 0 3px rgba(133, 206, 155, 0.2);
+  box-shadow: 0 0 0 2px rgba(133, 206, 155, 0.25);
 }
 
-/* Common Buttons & Panels */
+/* Common Panels & Buttons */
 .panel {
   background: var(--bg-panel);
   border: 1px solid var(--border-light);
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .btn {
-  border-radius: 9px;
+  border-radius: 7px;
   border: 1px solid transparent;
-  padding: 7px 14px;
+  padding: 5px 12px;
   font-size: 11px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: all 0.15s ease;
+  gap: 5px;
+  transition: all 0.14s ease;
   white-space: nowrap;
 }
 
 .btn-primary {
   background: #b6e8a6;
   color: #173121;
-  box-shadow: 0 3px 10px rgba(147, 220, 140, 0.18);
+  box-shadow: 0 2px 8px rgba(147, 220, 140, 0.18);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: #cbf5bd;
-  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -186,7 +189,6 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .btn-secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .btn-ghost {
@@ -205,54 +207,58 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .header-btn {
-  height: 34px;
-  padding: 0 13px;
-  font-size: 11px;
+  height: 30px;
+  padding: 0 11px;
+  font-size: 10.5px;
 }
 
 .upload-label {
   cursor: pointer;
 }
 
-/* Main Workspace Grid - Fits 100% Remaining Height Without Page Scroll */
+/* =========================================================
+   MAIN WORKSPACE GRID (Fixed Inside Viewport)
+   ========================================================= */
 .workspace-grid {
   flex: 1;
   min-height: 0;
+  height: calc(100% - 46px);
   display: grid;
-  grid-template-columns: minmax(380px, 1fr) minmax(380px, 450px);
-  gap: 16px;
-  overflow: hidden;
+  grid-template-columns: minmax(320px, 1fr) 370px;
+  gap: 12px;
+  overflow: hidden !important;
 }
 
 /* =========================================================
-   BOARD COLUMN (Left/Right depending on RTL)
+   BOARD COLUMN (Flex Proportional Sizing)
    ========================================================= */
 .board-column {
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 14px 18px;
-  min-height: 0;
-  overflow: hidden;
+  padding: 8px 12px;
+  overflow: hidden !important;
   justify-content: space-between;
 }
 
 .player-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 2px;
-  height: 40px;
-  min-height: 40px;
+  gap: 8px;
+  height: 30px;
+  min-height: 30px;
+  flex: none;
 }
 
 .player-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
   flex: none;
-  font: normal 22px Georgia, serif;
+  font: normal 18px Georgia, serif;
 }
 
 .player-avatar.white {
@@ -272,7 +278,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .player-meta strong {
   display: block;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -281,40 +287,41 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .player-meta small {
   display: block;
-  font: 700 9px var(--font-latin);
+  font: 700 8.5px var(--font-latin);
   color: var(--text-muted);
 }
 
 .mini-score {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  padding: 4px 9px;
-  border-radius: 6px;
-  font: 800 12px var(--font-latin);
+  padding: 3px 7px;
+  border-radius: 5px;
+  font: 800 11px var(--font-latin);
   color: var(--accent-green);
 }
 
-/* Chessboard Area - Scales to Fit Vertical Viewport Exactly */
+/* Chessboard Area - Scales to Fit Remaining Space */
 .board-wrapper {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 4px 0;
+  overflow: hidden;
+  margin: 2px 0;
 }
 
 .chessboard {
   height: 100%;
-  max-height: calc(100vh - 210px);
+  max-height: 100%;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   grid-template-rows: repeat(8, minmax(0, 1fr));
   direction: ltr;
-  border-radius: 8px;
+  border-radius: 7px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
 .square {
@@ -350,7 +357,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: block;
   z-index: 1;
   position: relative;
-  font: normal clamp(22px, 4.5vh, 48px)/1 'DejaVu Sans', 'Segoe UI Symbol', serif;
+  font: normal clamp(18px, 4.2vh, 44px)/1 'DejaVu Sans', 'Segoe UI Symbol', serif;
 }
 
 .white-piece {
@@ -365,7 +372,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .rank-label, .file-label {
   position: absolute;
-  font: 800 9px var(--font-latin);
+  font: 800 8.5px var(--font-latin);
   color: #5a7961;
   z-index: 2;
   pointer-events: none;
@@ -390,33 +397,34 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 9px;
-  padding: 4px 10px;
-  height: 40px;
-  min-height: 40px;
+  border-radius: 7px;
+  padding: 3px 8px;
+  height: 32px;
+  min-height: 32px;
+  flex: none;
 }
 
 .board-nav-buttons {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   direction: ltr;
 }
 
 .icon-nav-btn {
-  width: 32px;
-  height: 30px;
+  width: 28px;
+  height: 26px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 5px;
   background: rgba(255, 255, 255, 0.06);
   color: #c4ddd0;
-  font-size: 14px;
+  font-size: 13px;
   display: grid;
   place-items: center;
-  transition: background 0.14s ease;
+  transition: background 0.12s ease;
 }
 
 .icon-nav-btn:not(:disabled):hover {
@@ -424,57 +432,60 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .move-counter {
-  font: 800 11px var(--font-latin);
+  font: 800 10.5px var(--font-latin);
   color: #c5d2d0;
-  min-width: 60px;
+  min-width: 55px;
   text-align: center;
   direction: ltr;
 }
 
 .flip-btn {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .move-status-banner {
-  min-height: 32px;
-  height: 32px;
+  height: 26px;
+  min-height: 26px;
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #cde0d2;
   text-align: center;
-  padding: 0 8px;
+  padding: 0 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* =========================================================
-   SIDEBAR COLUMN (Analysis, Review, Moves)
+   SIDEBAR COLUMN (Chess.com Moves List + Review)
    ========================================================= */
 .sidebar-column {
+  height: 100%;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 14px;
-  min-height: 0;
-  overflow: hidden;
+  padding: 10px;
+  overflow: hidden !important;
 }
 
-/* Accuracy Summary Cards */
+/* Compact Accuracy Cards */
 .accuracy-summary {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex: none;
 }
 
 .acc-box {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 11px;
-  padding: 10px 12px;
+  border-radius: 8px;
+  padding: 6px 8px;
 }
 
 .white-acc-box {
@@ -488,15 +499,15 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .acc-box-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .player-mini-avatar {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .acc-box-name {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -507,29 +518,29 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 6px 0 4px;
+  margin: 3px 0 2px;
 }
 
 .acc-num {
-  font: 900 24px/1 var(--font-latin);
-  letter-spacing: -0.8px;
+  font: 900 18px/1 var(--font-latin);
+  letter-spacing: -0.6px;
 }
 
 .acc-num small {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 .acc-lbl {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 800;
   color: var(--text-muted);
 }
 
 .acc-bar-track {
-  height: 4px;
+  height: 3px;
   background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
@@ -537,7 +548,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   width: 0;
   height: 100%;
   background: var(--accent-green);
-  transition: width 0.6s ease;
+  transition: width 0.5s ease;
 }
 
 .black-acc-box .acc-bar-fill {
@@ -545,42 +556,43 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .acc-sub {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-dim);
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
-/* Compact Evaluation Chart */
+/* Ultra-Compact Evaluation Chart */
 .chart-section {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 10px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
+  border-radius: 8px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+  flex: none;
 }
 
 .chart-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .chart-header h4 {
   margin: 0;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .chart-tip {
-  font-size: 9px;
+  font-size: 8.5px;
   color: var(--text-dim);
 }
 
 .chart-wrap {
-  height: 80px;
+  height: 52px;
   background: #f3f4f2;
-  border-radius: 7px;
+  border-radius: 6px;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -589,16 +601,16 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .chart-empty {
-  font-size: 10px;
+  font-size: 9px;
   color: #7b8681;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   direction: rtl;
 }
 
 .chart-empty span {
-  font-size: 18px;
+  font-size: 15px;
   color: var(--accent-green);
 }
 
@@ -608,13 +620,14 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   cursor: crosshair;
 }
 
-/* Tabs: Moves List vs Game Review */
+/* Sidebar Tab Selector */
 .sidebar-tabs {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   border-bottom: 1px solid var(--border-light);
-  padding-bottom: 6px;
-  margin-bottom: 8px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  flex: none;
 }
 
 .tab-btn {
@@ -622,15 +635,15 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid transparent;
   color: var(--text-muted);
-  border-radius: 7px;
-  padding: 6px 10px;
-  font-size: 11px;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 10.5px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  transition: all 0.15s ease;
+  gap: 4px;
+  transition: all 0.12s ease;
 }
 
 .tab-btn:hover {
@@ -644,31 +657,34 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   border-color: rgba(168, 228, 171, 0.3);
 }
 
-/* Tab Content Area (Fits vertically with internal scroll only) */
+/* =========================================================
+   INTERNAL-ONLY SCROLLING CONTAINER
+   ========================================================= */
 .tab-content-container {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   padding-right: 2px;
 }
 
 .tab-content-container::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 
 .tab-content-container::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
 }
 
 .tab-content-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 4px;
 }
 
 .tab-pane {
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .tab-pane[hidden] {
@@ -680,14 +696,14 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
    ========================================================= */
 .moves-header-bar {
   display: grid;
-  grid-template-columns: 36px 1fr 1fr;
-  gap: 6px;
-  padding: 4px 8px;
-  font-size: 10px;
+  grid-template-columns: 32px 1fr 1fr;
+  gap: 4px;
+  padding: 3px 6px;
+  font-size: 9.5px;
   font-weight: 800;
   color: var(--text-dim);
   border-bottom: 1px solid var(--border-light);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   direction: ltr;
 }
 
@@ -698,19 +714,19 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .chesscom-moves-list {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   direction: ltr;
 }
 
 .move-row {
   display: grid;
-  grid-template-columns: 36px 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: 32px 1fr 1fr;
+  gap: 4px;
   align-items: center;
 }
 
 .move-number {
-  font: 800 11px var(--font-latin);
+  font: 800 10.5px var(--font-latin);
   color: var(--text-dim);
   text-align: center;
 }
@@ -719,16 +735,16 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 0 10px;
-  height: 32px;
-  border-radius: 7px;
+  gap: 4px;
+  padding: 0 8px;
+  height: 28px;
+  border-radius: 5px;
   border: 1px solid var(--border-light);
   background: var(--bg-card);
   color: #e0e9e4;
-  font: 800 12px var(--font-latin);
+  font: 800 11.5px var(--font-latin);
   direction: ltr;
-  transition: all 0.12s ease;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
 
 .move-chip:hover {
@@ -737,51 +753,51 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .move-chip.active {
-  background: #39543e;
+  background: #38563e;
   border-color: var(--accent-green);
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(158, 212, 160, 0.25);
+  box-shadow: 0 0 6px rgba(158, 212, 160, 0.25);
 }
 
 .move-mark {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .empty-moves {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10.5px;
   text-align: center;
-  padding: 24px 10px;
+  padding: 18px 8px;
 }
 
 /* =========================================================
-   REVIEW TAB (Coach + Breakdown Stats)
+   REVIEW TAB (Coach & Stats)
    ========================================================= */
 .coach-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .coach-avatar {
   flex: none;
-  width: 44px;
-  height: 52px;
+  width: 36px;
+  height: 44px;
   position: relative;
   display: grid;
   place-items: end center;
 }
 
 .coach-avatar div {
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 14px 14px 8px 8px;
+  border-radius: 10px 10px 6px 6px;
   background: linear-gradient(160deg, #c9eab5, #94bea0);
   color: #1d3b2b;
-  font: normal 32px Georgia, serif;
+  font: normal 26px Georgia, serif;
 }
 
 .coach-avatar > span {
@@ -789,48 +805,48 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   top: 0;
   right: 0;
   color: #f9ce70;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .coach-bubble {
   position: relative;
   background: #f4f6f4;
   color: #2b2f31;
-  border-radius: 12px 12px 3px 12px;
-  font-size: 11px;
+  border-radius: 9px 9px 2px 9px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.6;
-  padding: 10px 12px;
+  line-height: 1.5;
+  padding: 7px 10px;
   flex: 1;
 }
 
 .coach-bubble:after {
   content: "";
   position: absolute;
-  right: -6px;
-  top: 18px;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
+  right: -5px;
+  top: 14px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
   border-left: 0;
-  border-right: 6px solid #f4f6f4;
+  border-right: 5px solid #f4f6f4;
 }
 
 .stats-section {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 9px;
-  padding: 6px 10px;
+  border-radius: 7px;
+  padding: 4px 8px;
 }
 
 .stat-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 50px 50px;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   border-bottom: 1px solid var(--border-light);
   color: var(--text-dim);
-  font-size: 10px;
-  padding-bottom: 6px;
+  font-size: 9.5px;
+  padding-bottom: 4px;
 }
 
 .stat-head span:nth-child(n+2) {
@@ -838,18 +854,18 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .stats {
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .stat-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 50px 50px;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 4px;
   align-items: center;
-  min-height: 36px;
+  min-height: 30px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: 4px 6px;
-  border-radius: 5px;
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
 .stat-line:hover {
@@ -858,25 +874,25 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .stat-label {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .stat-icon {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   flex: none;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font: 900 11px var(--font-latin);
+  font: 900 10px var(--font-latin);
 }
 
 .stat-line strong {
   text-align: center;
-  font: 900 14px var(--font-latin);
+  font: 900 12.5px var(--font-latin);
 }
 
 .stat-line .unsupported {
@@ -884,32 +900,33 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .method-note {
-  font-size: 9px;
+  font-size: 8.5px;
   color: var(--text-dim);
-  margin-top: 8px;
-  line-height: 1.6;
+  margin-top: 6px;
+  line-height: 1.5;
 }
 
-/* Sidebar Bottom Engine Controls */
+/* Sidebar Footer Controls */
 .sidebar-footer {
-  margin-top: 10px;
-  padding-top: 8px;
+  flex: none;
+  margin-top: 6px;
+  padding-top: 5px;
   border-top: 1px solid var(--border-light);
 }
 
 .engine-controls {
   display: flex;
   align-items: end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .engine-depth {
   display: grid;
-  gap: 3px;
+  gap: 2px;
 }
 
 .engine-depth label {
-  font-size: 9px;
+  font-size: 8.5px;
   color: var(--text-muted);
 }
 
@@ -917,35 +934,35 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   border: 1px solid var(--border-light);
   background: var(--bg-input);
   color: var(--text-main);
-  border-radius: 8px;
-  padding: 6px 8px;
-  font-size: 11px;
-  height: 38px;
-  min-width: 95px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 10px;
+  height: 32px;
+  min-width: 85px;
 }
 
 .analyze-btn {
   flex: 1;
-  height: 38px;
-  font-size: 12px;
+  height: 32px;
+  font-size: 11px;
 }
 
 .progress-wrap {
-  padding: 6px 0 2px;
+  padding: 4px 0 1px;
 }
 
 .progress-label {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 9px;
   color: #b6dac2;
 }
 
 .progress-track {
-  margin-top: 4px;
-  height: 5px;
+  margin-top: 3px;
+  height: 4px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--bg-input);
 }
 
@@ -960,36 +977,31 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   color: var(--text-muted);
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 7px;
-  padding: 6px 10px;
-  font-size: 10px;
-  line-height: 1.6;
-  margin-top: 6px;
-  min-height: 30px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 9.5px;
+  line-height: 1.4;
+  margin-top: 4px;
+  min-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.status-msg[data-type="success"] {
-  color: #a9d9b3;
-}
-
-.status-msg[data-type="error"] {
-  color: #ff989d;
-}
-
-.status-msg[data-type="warning"] {
-  color: #f7c978;
-}
+.status-msg[data-type="success"] { color: #a9d9b3; }
+.status-msg[data-type="error"] { color: #ff989d; }
+.status-msg[data-type="warning"] { color: #f7c978; }
 
 /* =========================================================
-   PGN MODAL DIALOG (Pop-up instead of pushing the page down)
+   PGN MODAL DIALOG
    ========================================================= */
 .pgn-dialog {
   border: none;
   background: transparent;
   padding: 0;
-  max-width: 680px;
+  max-width: 640px;
   width: 90vw;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .pgn-dialog::backdrop {
@@ -1000,8 +1012,8 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .pgn-modal-content {
   background: #1d2128;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  padding: 22px;
+  border-radius: 16px;
+  padding: 18px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
 }
 
@@ -1009,30 +1021,29 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .modal-title-wrap .kicker {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 800;
   color: var(--accent-green);
-  letter-spacing: 0.3px;
 }
 
 .modal-title-wrap h3 {
-  margin: 3px 0 0;
-  font-size: 17px;
+  margin: 2px 0 0;
+  font-size: 15px;
   font-weight: 900;
 }
 
 .close-modal-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-light);
   color: #c0ccc7;
-  font-size: 14px;
+  font-size: 13px;
   display: grid;
   place-items: center;
 }
@@ -1044,73 +1055,34 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .pgn-modal-body textarea {
   display: block;
   width: 100%;
-  height: 180px;
+  height: 160px;
   resize: vertical;
   background: var(--bg-input);
   border: 1px solid var(--border-light);
-  border-radius: 10px;
+  border-radius: 8px;
   color: #e4edea;
-  padding: 12px 14px;
-  font: 500 12px/1.7 ui-monospace, Consolas, monospace;
+  padding: 10px 12px;
+  font: 500 11.5px/1.7 ui-monospace, Consolas, monospace;
   direction: ltr;
   text-align: left;
 }
 
 .modal-input-hint {
-  font-size: 10px;
+  font-size: 9.5px;
   color: var(--text-muted);
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .pgn-modal-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 16px;
-  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .modal-main-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-/* =========================================================
-   RESPONSIVENESS (Mobile Fallback)
-   ========================================================= */
-@media (max-width: 900px) {
-  html, body {
-    height: auto;
-    overflow-y: auto;
-  }
-
-  .app-layout {
-    height: auto;
-    overflow: visible;
-  }
-
-  .workspace-grid {
-    grid-template-columns: 1fr;
-    overflow: visible;
-    height: auto;
-  }
-
-  .board-wrapper {
-    max-height: 480px;
-  }
-
-  .chessboard {
-    max-height: 480px;
-  }
-
-  .sidebar-column {
-    height: auto;
-    overflow: visible;
-  }
-
-  .tab-content-container {
-    max-height: 400px;
-  }
 }
