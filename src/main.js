@@ -48,6 +48,9 @@ let soundEnabled = true;
 try { soundEnabled = localStorage.getItem('chess-insight-sound') !== 'off'; } catch {}
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+// A full move consists of White's move and Black's reply. Keep ply indices
+// internally so review navigation still visits each player's individual move.
+const fullMoveCount = plies => Math.ceil(plies / 2);
 const formatNum = n => Number.isFinite(n) ? n.toFixed(1) : '—';
 const pause = ms => new Promise(res => setTimeout(res, ms));
 
@@ -78,7 +81,7 @@ function computeGames(pgn) {
   chess.loadPgn(pgn.trim());
   const moves = chess.history({ verbose: true });
   if (!moves.length) throw new Error('لم يتم العثور على نقلات صحيحة في ملف PGN.');
-  if (moves.length > 500) throw new Error('هذه النسخة تدعم حتى 500 نصف نقلة في المباراة الواحدة.');
+  if (moves.length > 500) throw new Error('هذه النسخة تدعم حتى 250 نقلة كاملة في المباراة الواحدة.');
   const headers = chess.getHeaders ? chess.getHeaders() : (chess.header ? chess.header() : {});
   return {
     moves,
@@ -125,7 +128,7 @@ function loadGame(pgn) {
   byId('report-black-name').textContent = blackName;
   byId('white-elo').textContent = game.headers.WhiteElo ? `ELO ${game.headers.WhiteElo}` : 'WHITE';
   byId('black-elo').textContent = game.headers.BlackElo ? `ELO ${game.headers.BlackElo}` : 'BLACK';
-  byId('input-hint').textContent = `تم تحميل ${game.moves.length} نصف نقلة بنجاح.`;
+  byId('input-hint').textContent = `تم تحميل المباراة بنجاح · عدد النقلات: ${fullMoveCount(game.moves.length)}.`;
   status('المباراة جاهزة. اضغط «ابدأ التحليل» لتشغيل Stockfish.', 'success');
   renderAll();
 }
@@ -357,7 +360,7 @@ function renderBoard() {
   });
 
   if (arrow) drawMoveArrow(grid, arrow.from, arrow.to);
-  byId('move-counter').textContent = `${position} / ${game?.moves.length || 0}`;
+  byId('move-counter').textContent = `${fullMoveCount(position)} / ${fullMoveCount(game?.moves.length || 0)}`;
 
   let desc = 'بداية المباراة';
   if (game && position > 0) {
@@ -534,7 +537,7 @@ function renderChart() {
     const important = ['blunder', 'mistake', 'miss', 'brilliant', 'great'].includes(move.category);
     if (i % step && i !== position - 1 && !important) return '';
     const meta = LABELS.find(label => label[0] === move.category);
-    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="3.5" fill="${meta?.[3] || '#99968f'}"><title>${i + 1} · ${move.san}: ${meta?.[1] || ''}</title></circle>`;
+    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="3.5" fill="${meta?.[3] || '#99968f'}"><title>${Math.floor(i / 2) + 1}${move.color === 'w' ? '.' : '...'} ${move.san}: ${meta?.[1] || ''}</title></circle>`;
   }).join('');
 
   // Keep this SVG mounted while dragging so pointer capture remains intact.
@@ -548,7 +551,7 @@ function renderChart() {
   svg.setAttribute('preserveAspectRatio', 'none');
   svg.setAttribute('role', 'img');
   svg.setAttribute('tabindex', '0');
-  svg.setAttribute('aria-label', `منحنى تقييم المباراة: الأبيض أسفل المنحنى والأسود أعلاه. النقلة ${position} من ${values.length - 1}. انقر أو اسحب أو استخدم مفاتيح الأسهم للتنقل.`);
+  svg.setAttribute('aria-label', `منحنى تقييم المباراة: الأبيض أسفل المنحنى والأسود أعلاه. النقلة ${fullMoveCount(position)} من ${fullMoveCount(values.length - 1)}. انقر أو اسحب أو استخدم مفاتيح الأسهم للتنقل.`);
   svg.innerHTML = `
     <path d="${area}" fill="#fff"/>
     <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#ffffff" stroke-opacity=".19" stroke-width="1.4"/>
@@ -879,7 +882,8 @@ function setAnalyzing(active) {
 
 function updateProgress(done, total) {
   const pct = Math.round(done / total * 100);
-  byId('progress-text').textContent = `تحليل الوضعية ${done} من ${total}`;
+  const totalMoves = fullMoveCount(total - 1);
+  byId('progress-text').textContent = `تحليل النقلة ${Math.min(totalMoves, fullMoveCount(done))} من ${totalMoves}`;
   byId('progress-value').textContent = `${pct}%`;
   byId('progress-bar').style.width = `${pct}%`;
 }
@@ -925,7 +929,9 @@ async function startAnalysis() {
       if (abortRequested || id !== runId) break;
       const turnName = gameSnapshot.fens[i].split(' ')[1] === 'w' ? 'الأبيض' : 'الأسود';
       const moveNum = Math.floor(i / 2) + 1;
-      status(`جارٍ تحليل نقلة ${moveNum} (${turnName}) · الوضعية ${i + 1} من ${gameSnapshot.fens.length} (العمق ${depth})…`);
+      status(i < gameSnapshot.moves.length
+        ? `جارٍ تحليل النقلة ${moveNum} من ${fullMoveCount(gameSnapshot.moves.length)} (${turnName}) · العمق ${depth}…`
+        : `جارٍ استكمال تقييم الوضعية النهائية · العمق ${depth}…`);
       const history = uciMoves.slice(0, i).join(' ');
       const positionCommand = `position fen ${gameSnapshot.fens[0]}${history ? ` moves ${history}` : ''}`;
       const best = await analyzePosition(gameSnapshot.fens[i], depth, { multiPv: i < uciMoves.length ? 2 : 1, positionCommand });
@@ -934,7 +940,7 @@ async function startAnalysis() {
       if (i < uciMoves.length) {
         let played = best.lines.find(line => line.best === uciMoves[i]);
         if (!played) {
-          status(`فحص النقلة الفعلية ${i + 1} من ${uciMoves.length} ومقارنتها بأفضل البدائل…`);
+          status(`فحص النقلة ${moveNum} (${turnName}) من ${fullMoveCount(uciMoves.length)} ومقارنتها بأفضل البدائل…`);
           played = await analyzePosition(gameSnapshot.fens[i], depth, { searchMove: uciMoves[i], positionCommand });
         }
         playedScores.push(played);
@@ -950,7 +956,7 @@ async function startAnalysis() {
 
     analyses = buildResult(evals, playedScores);
     displayResults();
-    status(`اكتمل تحليل ${gameSnapshot.moves.length} نصف نقلة بنجاح عند عمق ${depth}.`, 'success');
+    status(`اكتمل التحليل بنجاح · عدد النقلات: ${fullMoveCount(gameSnapshot.moves.length)} · العمق: ${depth}.`, 'success');
   } catch (err) {
     if (abortRequested) status('تم إيقاف التحليل.', 'warning');
     else { status(err.message || 'حدث خطأ أثناء التحليل.', 'error'); console.error(err); }
