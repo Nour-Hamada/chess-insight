@@ -1,0 +1,19 @@
+{
+  "name": "chess-insight-free",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-engine.mjs",
+    "dev": "vite --host 0.0.0.0",
+    "build": "node scripts/copy-engine.mjs && vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "stockfish": "19.0.1"
+  },
+  "devDependencies": {
+    "vite": "^6.3.0"
+  }
+}

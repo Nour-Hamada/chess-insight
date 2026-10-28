@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Local logs & temp
+*.log
+tmp_chrome/
+.DS_Store
+Thumbs.db
+
+# Vite cache
+.vite/

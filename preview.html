@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#161a20" />
+  <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish داخل متصفحك. تقييم كل نقلة، الدقة، الأخطاء، ورسم التقييم." />
+  <title>Chess Insight — تقرير مباراتك المجاني</title>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="site-header">
+      <div class="logo-wrap" aria-label="Chess Insight">
+        <div class="logo-mark" aria-hidden="true">♞</div>
+        <div><strong>CHESS<span class="logo-accent">INSIGHT</span></strong><span>استوديو تحليل مبارياتك</span></div>
+      </div>
+      <div class="header-meta"><span class="live-dot"></span><span>تصميم تجريبي</span><span class="meta-divider">/</span><span>مجاني بالكامل</span></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="eyebrow"><span class="eyebrow-line"></span>حلّل. افهم. تطوّر.</div>
+        <h1>لكل نقلة <em>حكاية.</em></h1>
+        <p>الصق مباراة PGN وشاهد متى تفوقت، وأين أخطأت، وما كانت أفضل نقلة. تقرير مصمّم ليكون مفهوماً من النظرة الأولى.</p>
+      </section>
+
+      <section class="editor panel" aria-label="إدخال المباراة">
+        <div class="editor-head">
+          <div><div class="kicker">ابدأ من هنا <span>01</span></div><h2>أدخل مباراتك</h2></div>
+          <label class="upload-btn" for="pgn-file"><span aria-hidden="true">↥</span> ارفع ملف PGN</label><input id="pgn-file" type="file" accept=".pgn,text/plain" hidden />
+        </div>
+        <div class="editor-content">
+          <textarea id="pgn-text" dir="ltr" spellcheck="false" aria-label="نص PGN" placeholder='[White "Player 1"]&#10;[Black "Player 2"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
+          <div class="editor-side">
+            <div class="editor-tip"><span class="tip-icon" aria-hidden="true">✦</span><strong>انسخ PGN كما هو</strong><small>من Chess.com أو Lichess أو أي تطبيق شطرنج.</small></div>
+            <button id="load-btn" class="btn btn-primary" type="button">عرض المباراة <span aria-hidden="true">←</span></button>
+            <button id="demo-btn" class="btn btn-ghost" type="button">جرّب مثالاً جاهزاً</button>
+          </div>
+        </div>
+        <div class="input-hint" id="input-hint">يمكنك لصق PGN من Chess.com أو Lichess</div>
+      </section>
+
+      <section class="workspace">
+        <section class="analysis-panel panel" aria-label="تقرير تحليل المباراة">
+          <div class="section-heading report-heading"><div><span class="kicker">تقرير المباراة <span>02</span></span><h2>نظرة على أدائك <span class="heading-spark">✦</span></h2></div><div class="engine-tag"><span class="live-dot"></span> تحليل محلي آمن</div></div>
+
+          <div class="coach-card">
+            <div class="coach-avatar" aria-hidden="true"><div>♟</div><span>✦</span></div>
+            <div class="coach-bubble" id="coach-bubble">مرحباً! أدخل مباراتك، وسأساعدك على اكتشاف النقلات الرائعة والأخطاء التي تستحق المراجعة.</div>
+          </div>
+
+          <div class="engine-controls"><div class="engine-depth"><label for="depth-select">قوة التحليل</label><select id="depth-select" aria-label="عمق التحليل"><option value="8">سريع · 8</option><option value="12" selected>متوازن · 12</option><option value="16">متعمق · 16</option></select></div><button class="btn btn-primary analyze-btn" id="analyze-btn" type="button">⚡ ابدأ التحليل المجاني</button><button class="btn btn-danger" id="cancel-btn" type="button" hidden>إيقاف</button></div>
+          <div class="progress-wrap" id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">جارٍ التحليل…</span><span id="progress-value">0%</span></div><div class="progress-track"><div id="progress-bar"></div></div></div>
+          <div id="status" class="status" role="status" aria-live="polite">مباراة تجريبية جاهزة — اعرضها ثم اضغط «ابدأ التحليل».</div>
+
+          <div class="chart-title"><h3>من كان الأفضل؟</h3><span>تغيّر الأفضلية خلال المباراة</span></div>
+          <div class="chart-wrap" id="chart-wrap"><div class="chart-empty"><span>↗</span> سيظهر منحنى المباراة هنا بعد التحليل</div></div>
+          <div class="chart-legend"><span><i class="legend-white"></i> أفضلية الأبيض</span><span><i class="legend-black"></i> أفضلية الأسود</span><span class="chart-legend-hint">اضغط على المنحنى للانتقال إلى النقلة</span></div>
+
+          <div class="comparison-heading"><h3>مقارنة اللاعبين</h3><span>الدقة تقديرية ولا تطابق بالضرورة Chess.com</span></div>
+          <div class="accuracy-grid">
+            <article class="accuracy-card white-card"><div class="accuracy-card-top"><span class="player-avatar white">♙</span><div><strong id="report-white-name">الأبيض</strong><small>اللاعب الأبيض</small></div></div><div class="accuracy-score-line"><span class="accuracy-value" id="white-accuracy">—<small>%</small></span><span class="score-caption">الدقة</span></div><div class="accuracy-meter"><span id="white-meter"></span></div><div class="accuracy-sub" id="white-accuracy-sub">لم يُحلّل بعد</div></article>
+            <article class="accuracy-card black-card"><div class="accuracy-card-top"><span class="player-avatar black">♟</span><div><strong id="report-black-name">الأسود</strong><small>اللاعب الأسود</small></div></div><div class="accuracy-score-line"><span class="accuracy-value" id="black-accuracy">—<small>%</small></span><span class="score-caption">الدقة</span></div><div class="accuracy-meter"><span id="black-meter"></span></div><div class="accuracy-sub" id="black-accuracy-sub">لم يُحلّل بعد</div></article>
+          </div>
+
+          <div class="stats-heading"><div><h3>تصنيف النقلات</h3><p>كل لون يدلّ على جودة مختلفة</p></div><span class="mini-legend">الأبيض &nbsp; / &nbsp; الأسود</span></div>
+          <div class="stat-head"><span>التصنيف</span><span>الأبيض</span><span>الأسود</span></div>
+          <div class="stats" id="stats"></div>
+          <div class="method-note"><span aria-hidden="true">ⓘ</span> تُحسب الدقة بخوارزمية تقديرية مستوحاة من Lichess. الفئات «عبقرية»، «رائعة»، و«افتتاحية» تتطلب قواعد إضافية، لذا نظهرها بشرطة بدل اختلاق نتائج.</div>
+        </section>
+
+        <section class="board-panel panel" aria-label="رقعة المباراة">
+          <div class="section-heading"><div><span class="kicker">تتبّع النقلات <span>03</span></span><h2>رقعة الشطرنج</h2></div><button class="icon-btn" id="flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button></div>
+          <div class="player-bar player-black"><span class="player-avatar black">♟</span><div class="player-info"><strong id="black-name">الأسود</strong><small id="black-elo">—</small></div><span id="black-mini-score" class="mini-score">—</span></div>
+          <div class="board-frame"><div id="board" class="chessboard" role="img" aria-label="وضعية الشطرنج الحالية"></div></div>
+          <div class="player-bar player-white"><span class="player-avatar white">♙</span><div class="player-info"><strong id="white-name">الأبيض</strong><small id="white-elo">—</small></div><span id="white-mini-score" class="mini-score">—</span></div>
+          <div class="board-controls"><button id="first-btn" aria-label="أول نقلة" title="البداية">⏮</button><button id="prev-btn" aria-label="النقلة السابقة" title="السابق">◀</button><span id="move-counter">0 / 0</span><button id="next-btn" aria-label="النقلة التالية" title="التالي">▶</button><button id="last-btn" aria-label="آخر نقلة" title="النهاية">⏭</button></div>
+          <div id="move-description" class="move-description">شاهد النقلة الحالية وتقييمها هنا</div>
+          <div class="board-note"><span>↔</span> تصفّح النقلات بالأسهم أو انقر على النقلة في السجل.</div>
+        </section>
+      </section>
+
+      <section class="moves-panel panel">
+        <div class="section-heading"><div><span class="kicker">كل نقلة مهمة <span>04</span></span><h2>سجل النقلات</h2></div><span id="move-list-label" class="muted-label">اختر نقلة لعرضها</span></div>
+        <div id="moves-list" class="moves-list"><div class="empty-moves">لنبدأ بإدخال مباراتك.</div></div>
+      </section>
+      <footer><span>CHESS<span class="logo-accent">INSIGHT</span> <b>© 2026</b></span><span>محرك Stockfish 19 · يعمل داخل المتصفح · لا تسجيل ولا اشتراك</span></footer>
+    </main>
+  </div>
+  <style>@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+:root{font-family:'Cairo',system-ui,sans-serif;color:#eff3f4;background:#111419;font-synthesis:none;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse 720px 500px at 88% -160px,#2a473245,transparent),radial-gradient(ellipse 700px 420px at -20% 75%,#26324225,transparent),#111419;min-height:100vh}
+button,select,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.38}button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #aee4ab;outline-offset:3px}[hidden]{display:none!important}h1,h2,h3,p{margin:0}a{color:inherit}.app-shell{width:min(1190px,calc(100% - 48px));margin:auto}
+.site-header{min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid #ffffff11}.logo-wrap{display:flex;align-items:center;gap:11px}.logo-mark{width:46px;height:46px;background:linear-gradient(145deg,#d4f5c2,#9ed4a0);color:#172c20;border-radius:14px;display:grid;place-items:center;font:normal 36px Georgia,serif;box-shadow:0 0 30px #91dc9c19}.logo-wrap strong{display:block;font:900 19px 'DM Sans',sans-serif;letter-spacing:-.6px}.logo-accent{color:#b7e5aa}.logo-wrap div>span{display:block;color:#9faeaa;font-size:10px;margin-top:3px}.header-meta{display:flex;align-items:center;gap:10px;padding:9px 15px;border:1px solid #ffffff17;background:#ffffff07;border-radius:30px;color:#bdc8c7;font:700 10px 'DM Sans','Cairo',sans-serif}.live-dot{width:7px;height:7px;flex:none;background:#87d6a7;border-radius:100%;box-shadow:0 0 0 4px #85ce9b1a}.meta-divider{color:#68747c}
+.hero{max-width:750px;text-align:center;margin:42px auto 27px}.eyebrow,.kicker{font-size:11px;letter-spacing:.3px;font-weight:800;color:#a6d9a8}.eyebrow{display:flex;justify-content:center;align-items:center;gap:8px}.eyebrow-line{width:22px;height:2px;background:#94cf9f}.hero h1{font-size:clamp(34px,4.2vw,54px);letter-spacing:-1.5px;font-weight:900;line-height:1.45;margin:8px 0}.hero em{font-style:normal;color:#c1eba8}.hero p{font-size:13px;line-height:1.9;color:#a3afb9;max-width:650px;margin:auto}.panel{background:#20242a;border:1px solid #ffffff12;border-radius:20px;box-shadow:0 12px 34px #0304051f}
+.editor{padding:23px 25px;margin-bottom:22px}.editor-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;gap:12px}.editor-head h2{font-size:19px;font-weight:900;margin-top:4px}.kicker span{font-family:'DM Sans',sans-serif;font-size:10px;background:#35534155;color:#bde6b9;padding:2px 6px;border-radius:5px;margin-inline-start:6px;letter-spacing:0}.upload-btn,.icon-btn{border:1px solid #ffffff25;background:#ffffff0b;color:#e7ebeb;padding:9px 16px;border-radius:10px;font-weight:700;font-size:11px;transition:.16s}.upload-btn:hover,.icon-btn:hover{background:#ffffff1c}.upload-btn span{font-size:19px;vertical-align:middle;margin-left:7px}.editor-content{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:15px}.editor textarea{display:block;width:100%;min-height:137px;resize:vertical;background:#15191d;border:1px solid #ffffff18;border-radius:12px;color:#e4edea;padding:15px 18px;font:500 12px/1.7 ui-monospace,Consolas,monospace;text-align:left;direction:ltr}.editor-side{display:flex;flex-direction:column;gap:9px}.editor-tip{position:relative;padding:10px 14px 10px 35px;background:#a3e5b00a;border:1px solid #9fe0ad19;border-radius:9px;min-height:57px}.editor-tip strong,.editor-tip small{display:block}.editor-tip strong{font-size:12px}.editor-tip small{font-size:10px;color:#96aaa5;line-height:1.7}.tip-icon{position:absolute;right:12px;top:10px;color:#91d99e}.btn{border-radius:11px;white-space:nowrap;border:1px solid transparent;padding:9px 15px;font-size:12px;font-weight:900;min-height:43px;transition:.15s}.btn-primary{background:#b6e8a6;color:#173121;box-shadow:0 4px 12px #93dc8c16}.btn-primary:hover{background:#d0f5c3;transform:translateY(-1px)}.btn-ghost{background:#ffffff09;color:#dfe8df;border-color:#ffffff17}.btn-ghost:hover{background:#ffffff17}.btn-danger{background:#963e4c;color:#fff}.input-hint{font-size:10px;color:#8fa39a;margin-top:10px}
+.workspace{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);gap:22px;align-items:start}.analysis-panel,.board-panel{padding:23px;min-width:0}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}.section-heading h2{font-size:20px;font-weight:900;margin-top:5px}.heading-spark{color:#a8dca9;font-size:18px}.engine-tag{font-size:10px;color:#bbdac4;background:#2e4537;border:1px solid #456b52;border-radius:40px;padding:8px 11px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.coach-card{display:flex;align-items:center;gap:10px;margin:5px 0 16px}.coach-avatar{flex:none;width:59px;height:70px;position:relative;display:grid;place-items:end center}.coach-avatar div{width:53px;height:53px;display:grid;place-items:center;border-radius:19px 19px 10px 10px;background:linear-gradient(160deg,#c9eab5,#94bea0);color:#1d3b2b;font:normal 43px Georgia,serif;box-shadow:0 7px 13px #0002}.coach-avatar>span{position:absolute;top:0;right:0;color:#f9ce70;font-size:24px}.coach-bubble{position:relative;background:#f4f6f4;color:#2f3335;border-radius:15px 15px 4px 15px;font-size:12px;font-weight:700;line-height:1.8;padding:14px 15px;min-height:64px;display:flex;align-items:center;flex:1}.coach-bubble:after{content:"";position:absolute;right:-8px;top:27px;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:0;border-right:9px solid #f4f6f4}
+.engine-controls{display:flex;align-items:end;gap:10px;margin:7px 0 12px}.engine-depth{display:grid;gap:4px}.engine-depth label{font-size:10px;color:#adbab5}.engine-depth select{border:1px solid #ffffff1d;background:#11161a;color:#e4ede6;border-radius:9px;padding:9px 11px;font-size:11px;min-height:43px;min-width:112px}.analyze-btn{flex:1}.status{color:#c1c9d1;background:#12171b;border:1px solid #ffffff0f;border-radius:10px;padding:10px 12px;font-size:10px;line-height:1.8;min-height:37px}.status[data-type=success]{color:#a9d9b3}.status[data-type=error]{color:#ff989d}.status[data-type=warning]{color:#f7c978}.progress-wrap{padding:8px 0}.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#b6dac2}.progress-track{margin-top:6px;height:6px;overflow:hidden;border-radius:8px;background:#10171a}.progress-track>div{width:0;height:100%;background:#9cda97;transition:width .22s}
+.chart-title,.comparison-heading,.stats-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:19px 0 11px}.chart-title h3,.comparison-heading h3,.stats-heading h3{font-size:14px;font-weight:900}.chart-title>span,.comparison-heading>span,.stats-heading>span{color:#8c9c9d;font-size:10px}.chart-wrap{height:130px;background:#f3f4f2;border-radius:11px;overflow:hidden;display:flex;align-items:center;justify-content:center;direction:ltr;border:1px solid #ffffff18}.chart-empty{display:flex;align-items:center;gap:8px;color:#7c8581;font-size:11px;direction:rtl}.chart-empty span{font-size:27px;color:#94c59b}.eval-chart{width:100%;height:100%;cursor:crosshair}.chart-legend{display:flex;gap:12px;align-items:center;margin-top:9px;flex-wrap:wrap;color:#a4b0ad;font-size:9px}.chart-legend span{display:flex;align-items:center;gap:5px}.chart-legend i{display:block;width:9px;height:9px;border-radius:50%}.chart-legend .legend-white{background:#c4cfc9}.chart-legend .legend-black{background:#52565b}.chart-legend-hint{margin-right:auto;color:#788684}.comparison-heading{margin-top:22px}.accuracy-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.accuracy-card{background:#161b21;border:1px solid #ffffff15;border-radius:13px;padding:13px;min-width:0;overflow:hidden}.accuracy-card.white-card{border-top:2px solid #b4deb0}.accuracy-card.black-card{border-top:2px solid #8e9dad}.accuracy-card-top{display:flex;align-items:center;gap:9px;min-width:0}.player-avatar{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;flex:none;font:normal 28px Georgia,serif}.player-avatar.white{background:#e8ece4;color:#636e66}.player-avatar.black{background:#53606c;color:#e7eef1}.accuracy-card-top>div{min-width:0}.accuracy-card-top strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:800 13px 'DM Sans','Cairo',sans-serif;direction:auto}.accuracy-card-top small{display:block;color:#899b9b;font-size:9px}.accuracy-score-line{display:flex;align-items:baseline;justify-content:space-between;margin:14px 0 9px}.accuracy-value{font:900 clamp(27px,3.5vw,41px)/1 'DM Sans',sans-serif;letter-spacing:-1.3px}.accuracy-value small{font-size:15px;color:#94a59f;letter-spacing:0;margin-left:3px}.score-caption{font-weight:800;color:#9db0a3;font-size:10px}.accuracy-meter{height:6px;border-radius:5px;background:#343a41;overflow:hidden}.accuracy-meter>span{display:block;width:0;height:100%;background:#a7df9f;border-radius:5px;transition:width .8s}.black-card .accuracy-meter>span{background:#9eb8d7}.accuracy-sub{color:#85969a;font-size:10px;margin-top:9px}
+.stats-heading{margin-top:26px;margin-bottom:9px}.stats-heading p{font-size:10px;color:#8a9c96;margin-top:3px}.mini-legend{direction:rtl;white-space:nowrap}.stat-head{display:grid;grid-template-columns:minmax(0,1fr) 55px 55px;align-items:center;gap:6px;border-bottom:1px solid #ffffff16;color:#84939d;font-size:10px;padding:0 10px 9px}.stat-head span:nth-child(n+2){text-align:center}.stats{margin-top:2px}.stat-line{display:grid;grid-template-columns:minmax(0,1fr) 55px 55px;gap:6px;align-items:center;min-height:47px;border-bottom:1px solid #ffffff0e;padding:7px 10px;border-radius:7px}.stat-line:hover{background:#ffffff06}.stat-label{display:flex;gap:10px;align-items:center;font-size:12px;font-weight:800}.stat-icon{width:29px;height:29px;flex:none;display:grid;place-items:center;border-radius:50%;font:900 13px 'DM Sans','Cairo',sans-serif;direction:ltr}.stat-line strong{text-align:center;font:900 17px 'DM Sans',sans-serif}.stat-line .unsupported{color:#68757e!important}.method-note{margin-top:14px;font-size:10px;line-height:1.9;color:#82939a;border-top:1px solid #ffffff13;padding-top:12px}.method-note span{font-size:15px;margin-left:6px;color:#b7c8bc}
+.board-panel{position:sticky;top:12px}.icon-btn{font-size:26px;width:42px;height:42px;padding:0}.player-bar{display:flex;align-items:center;gap:10px;padding:10px 1px}.player-info{flex:1;min-width:0}.player-info strong{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.player-info small{font:700 10px 'DM Sans',sans-serif;color:#899baa}.mini-score{background:#11171b;border:1px solid #ffffff14;padding:6px 10px;border-radius:8px;font:800 13px 'DM Sans',sans-serif;color:#bedabc}.board-frame{aspect-ratio:1/1;width:100%;border-radius:9px;overflow:hidden;box-shadow:0 10px 25px #0004}.chessboard{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));height:100%;width:100%;direction:ltr}.square{position:relative;display:grid;place-items:center;min-height:0;min-width:0;user-select:none}.square.light{background:#eeece1}.square.dark{background:#829c86}.square.last-move.light{background:#d8e49e}.square.last-move.dark{background:#b3ca77}.piece{display:block;z-index:1;position:relative;font:normal clamp(22px,4vw,56px)/1 'DejaVu Sans','Segoe UI Symbol',serif}.white-piece{color:#fffdf3;text-shadow:0 2px 0 #3d5143,1px 0 0 #596d59,-1px 0 0 #586a59,0 0 3px #1c261f}.black-piece{color:#222b27;text-shadow:0 1px 1px #dbe2d6,1px 0 0 #53635a}.rank-label,.file-label{position:absolute;font:800 10px 'DM Sans',sans-serif;color:#5a7961;z-index:2}.rank-label{left:4px;top:3px}.file-label{bottom:3px;right:4px}.dark .rank-label,.dark .file-label{color:#e9f3db}.board-controls{display:flex;justify-content:center;align-items:center;gap:9px;margin-top:12px;background:#12171d;border:1px solid #ffffff0a;border-radius:11px;padding:8px}.board-controls button{width:41px;height:36px;border:0;border-radius:8px;background:#ffffff09;color:#c4ddd0;font-size:16px}.board-controls button:not(:disabled):hover{background:#3d5445}.board-controls #move-counter{font:800 12px 'DM Sans',sans-serif;direction:ltr;color:#c5d2d0;min-width:70px;text-align:center}.move-description{min-height:44px;font-size:12px;line-height:1.8;text-align:center;padding:14px 5px 3px;color:#ccdccd}.board-note{text-align:center;color:#889b9e;font-size:10px;padding-top:7px}.board-note span{font-size:17px;color:#a6c99f}
+.moves-panel{margin-top:22px;padding:25px}.muted-label{font-size:11px;color:#93a7a1}.moves-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 12px;max-height:350px;overflow-y:auto;padding:4px}.empty-moves{color:#80928d;font-size:12px;padding:12px}.move-row{display:grid;grid-template-columns:31px 1fr 1fr;gap:7px;align-items:center;min-width:0;direction:ltr}.move-number{font:800 12px 'DM Sans',sans-serif;text-align:center;color:#8c9e9d}.move-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0;padding:0 11px;height:40px;border-radius:9px;border:1px solid #ffffff10;color:#dde8e2;background:#161b21;font:800 13px 'DM Sans',sans-serif;direction:ltr}.move-chip:hover{background:#2d3e35}.move-chip.active{background:#3f5e46;border-color:#a5ddaa;color:#fff}.move-mark{font-size:14px}footer{margin-top:28px;border-top:1px solid #ffffff10;padding:23px 0 30px;display:flex;justify-content:space-between;gap:12px;color:#74827e;font-size:10px}footer span:first-child{font:900 14px 'DM Sans',sans-serif}footer b{color:#728176;font-size:10px;font-weight:400}
+@media(max-width:1000px){.workspace{grid-template-columns:1fr}.analysis-panel,.board-panel{width:100%;max-width:720px;margin:auto}.board-panel{position:static}.piece{font-size:clamp(25px,7vw,68px)}.moves-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.app-shell{width:calc(100% - 22px)}.site-header{min-height:72px}.header-meta{font-size:9px;padding:8px}.header-meta span:last-child,.meta-divider{display:none}.logo-mark{width:40px;height:40px;font-size:30px}.logo-wrap strong{font-size:16px}.hero{margin:35px auto 21px}.hero h1{font-size:37px}.hero p{font-size:11px}.editor,.analysis-panel,.board-panel,.moves-panel{padding:17px;border-radius:16px}.editor-content{grid-template-columns:1fr}.editor textarea{min-height:115px}.editor-side{display:grid;grid-template-columns:1fr 1fr}.editor-tip{grid-column:span 2}.upload-btn{font-size:10px;padding:7px 11px}.engine-tag{display:none}.accuracy-card{padding:11px}.accuracy-card-top .player-avatar{width:33px;height:33px;font-size:23px}.accuracy-card-top strong{font-size:12px}.stat-head,.stat-line{grid-template-columns:minmax(0,1fr) 48px 48px}.section-heading h2{font-size:18px}.chart-title>span,.comparison-heading>span{max-width:150px;text-align:left}.moves-list{grid-template-columns:1fr}.piece{font-size:clamp(30px,9vw,56px)}.rank-label,.file-label{font-size:8px}.board-controls{gap:4px}.board-controls button{width:36px}.chart-legend-hint{display:none}footer{flex-direction:column}.coach-avatar{width:45px}.coach-avatar div{width:43px;height:43px;font-size:37px}.coach-bubble{font-size:11px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
+</style>
+<script>(() => {
+// This single-file edition is an interactive DESIGN PREVIEW. No Stockfish analysis runs in this file.
+const $=id=>document.getElementById(id);
+const sample='[Event "Demo · design preview"]\n[White "White Player"]\n[Black "Black Player"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0';
+$('pgn-text').value=sample;
+$('status').dataset.type='warning';
+$('status').textContent='معاينة تفاعلية للتصميم فقط — الأرقام توضيحية. للتحليل الفعلي استخدم مشروع Stockfish المرفق.';
+$('coach-bubble').textContent='أحسنت! يمكنك رؤية أين بدأت الأفضلية بالتحول. هذه أرقام توضيحية لمعاينة التصميم وليست نتيجة تحليل فعلي.';
+$('input-hint').textContent='ملف المعاينة يعرض بيانات تجريبية، بينما حزمة المشروع تتضمن تحليل Stockfish الفعلي.';
+$('report-white-name').textContent='White Player';$('report-black-name').textContent='Black Player';
+$('white-name').textContent='White Player';$('black-name').textContent='Black Player';
+$('white-elo').textContent='DEMO';$('black-elo').textContent='DEMO';
+$('white-accuracy').innerHTML='88.1<small>%</small>';$('black-accuracy').innerHTML='59.6<small>%</small>';
+$('white-mini-score').textContent='88.1%';$('black-mini-score').textContent='59.6%';
+$('white-meter').style.width='88.1%';$('black-meter').style.width='59.6%';
+$('white-accuracy-sub').textContent='4 نقلات تجريبية';$('black-accuracy-sub').textContent='3 نقلات تجريبية';
+$('analyze-btn').textContent='⚡ التحليل الحقيقي في نسخة المشروع';
+const labels=[['عبقرية','!!','#2dcbb4','—','—'],['رائعة','!','#80b3df','—','—'],['افتتاحية','▣','#d2a47b','—','—'],['الأفضل','★','#87d373',2,0],['ممتازة','♥','#a4d18a',1,1],['جيدة','✓','#9ecca5',1,0],['عدم دقة','?!','#f2c84c',0,0],['خطأ','?','#f0a15e',0,1],['هفوة','×','#f06a69',0,1]];
+$('stats').innerHTML=labels.map(([name,ico,col,w,b])=>`<div class="stat-line"><span class="stat-label"><span class="stat-icon" style="background:${col}24;color:${col}">${ico}</span>${name}</span><strong style="color:${w==='—'?'#68757e':col}">${w}</strong><strong style="color:${b==='—'?'#68757e':col}">${b}</strong></div>`).join('');
+const evals=[0,8,-10,14,26,21,91,200],mid=77,width=900,height=154,pad=13;
+const xx=i=>pad+(width-pad*2)*i/(evals.length-1),yy=cp=>mid-61*Math.tanh(cp/250);
+const pts=evals.map((v,i)=>[xx(i),yy(v)]),path=pts.map((p,i)=>`${i?'L':'M'}${p[0]},${p[1]}`).join(' '),area=`${path}L ${xx(evals.length-1)},${mid}L ${xx(0)},${mid}Z`;
+const cats=['#87d373','#a4d18a','#f0a15e','#87d373','#a4d18a','#f06a69','#87d373'];
+let position=0,flip=false;
+const moves=[['e2','e4','e4'],['e7','e5','e5'],['f1','c4','Bc4'],['b8','c6','Nc6'],['d1','h5','Qh5'],['g8','f6','Nf6?'],['h5','f7','Qxf7#']];
+const fens=['rnbqkbnr','pppppppp','........','........','........','........','PPPPPPPP','RNBQKBNR'];
+const start={};fens.forEach((r,y)=>Array.from(r).forEach((c,x)=>{if(c!=='.')start['abcdefgh'[x]+(8-y)]=c}));
+const glyph={K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟︎'};
+function render(){
+ let b={...start};for(let i=0;i<position;i++){let [from,to]=moves[i];b[to]=b[from];delete b[from];}
+ const a=[];for(let y=0;y<8;y++)for(let x=0;x<8;x++){let rank=8-y,file='abcdefgh'[x],s=file+rank;a.push({s,c:b[s],x,y})}
+ $('board').innerHTML=(flip?a.reverse():a).map((t,i)=>`<div class="square ${(t.x+t.y)%2===0?'light':'dark'} ${position>0&&moves[position-1].slice(0,2).includes(t.s)?'last-move':''}">${i%8===0?`<span class="rank-label">${flip?1+Math.floor(i/8):8-Math.floor(i/8)}</span>`:''}${i>=56?`<span class="file-label">${flip?'hgfedcba'[i%8]:'abcdefgh'[i%8]}</span>`:''}${t.c?`<span class="piece ${t.c===t.c.toUpperCase()?'white-piece':'black-piece'}">${glyph[t.c]}</span>`:''}</div>`).join('');
+ $('move-counter').textContent=`${position} / ${moves.length}`;
+ $('move-description').textContent=position?`${Math.ceil(position/2)}${position%2?'.':'...'} ${moves[position-1][2]} · ${position===6?'هفوة':position===7?'أفضل نقلة':'تابع تطوّر المباراة'}`:'بداية المباراة';
+ ['first','prev'].forEach(id=>$(id+'-btn').disabled=position===0);
+ ['last','next'].forEach(id=>$(id+'-btn').disabled=position===moves.length);
+ $('moves-list').querySelectorAll('button[data-pos]').forEach(btn=>btn.classList.toggle('active',+btn.dataset.pos===position));
+ const cursor=xx(position),cy=yy(evals[position]);
+ $('chart-wrap').innerHTML=`<svg class="eval-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-label="رسم تقييم توضيحي"><line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#a8afa8" stroke-width="2"/><path d="${area}" fill="#a6b0ab" opacity=".85"/><path d="${path}" stroke="#57645b" stroke-width="2" fill="none"/>${cats.map((c,i)=>`<circle cx="${xx(i+1)}" cy="${yy(evals[i+1])}" r="5" fill="${c}" stroke="#fff" stroke-width="1.4"/>`).join('')}<line x1="${cursor}" y1="0" x2="${cursor}" y2="${height}" stroke="#327951" stroke-dasharray="5 6" stroke-width="2"/><circle cx="${cursor}" cy="${cy}" r="6" fill="#347d55" stroke="white" stroke-width="2"/></svg>`;
+ $('chart-wrap').querySelector('svg').onclick=e=>{let r=e.currentTarget.getBoundingClientRect();position=Math.min(7,Math.max(0,Math.round((e.clientX-r.left)/r.width*7)));render()};
+}
+const list=$('moves-list');list.innerHTML='';for(let i=0;i<moves.length;i+=2){const row=document.createElement('div');row.className='move-row';row.innerHTML=`<span class="move-number">${String(i/2+1).padStart(2,'0')}</span>`;for(let j=i;j<Math.min(i+2,moves.length);j++){let btn=document.createElement('button');btn.className='move-chip';btn.dataset.pos=j+1;btn.innerHTML=`${moves[j][2]} <span style="color:${cats[j]}">●</span>`;btn.onclick=()=>{position=j+1;render()};row.appendChild(btn)}list.appendChild(row)}
+$('move-list-label').textContent='7 نقلات توضيحية';
+$('first-btn').onclick=()=>{position=0;render()};$('prev-btn').onclick=()=>{position=Math.max(0,position-1);render()};$('next-btn').onclick=()=>{position=Math.min(7,position+1);render()};$('last-btn').onclick=()=>{position=7;render()};$('flip-btn').onclick=()=>{flip=!flip;render()};
+$('demo-btn').onclick=()=>{$('pgn-text').value=sample;$('input-hint').textContent='أعدنا إدراج المثال التجريبي.'};
+$('load-btn').onclick=$('analyze-btn').onclick=()=>{$('status').dataset.type='warning';$('status').textContent='هذا ملف لمعاينة التصميم فقط. التحليل الحقيقي يعمل عند تشغيل المشروع عبر npm install ثم npm run dev.';};
+$('pgn-file').onchange=()=>{$('status').textContent='رفع PGN والتحليل الفعلي متاحان في حزمة المشروع، وليس معاينة التصميم هذه.'};
+render();
+})();</script>
+</body>
+</html>
