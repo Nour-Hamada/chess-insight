@@ -1236,3 +1236,77 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
     max-height: 320px;
   }
 }
+
+
+/* Review workspace: restrained charcoal, large grey board and flat pieces. */
+:root {
+  --bg-main: #302e2b;
+  --bg-panel: #262522;
+  --bg-card: #302e2b;
+  --bg-input: #211f1d;
+  --accent-green: #81b64c;
+  --accent-hover: #a3d160;
+  --text-main: #f4f4f2;
+  --text-muted: #b7b5b1;
+  --text-dim: #96938e;
+}
+html, body { background: var(--bg-main); }
+.app-layout { max-width: 1400px; padding: 10px 20px 24px; }
+.app-header { border-color: rgba(255,255,255,.07); margin-bottom: 12px; }
+.logo-mark { background: #81b64c; color: #fff; box-shadow: none; border-radius: 5px; }
+.workspace-grid { direction: ltr; grid-template-columns: minmax(360px, 1fr) minmax(340px, 480px); gap: 24px; }
+.board-column, .sidebar-column { direction: rtl; }
+.board-column.panel { background: transparent; border: 0; box-shadow: none; padding: 0; }
+.board-column { max-width: 780px; width: 100%; justify-self: center; }
+.player-bar { direction: rtl; height: 44px; min-height: 44px; }
+.player-avatar { border-radius: 4px; }
+.player-avatar.black { background: #555451; }
+.mini-score { background: #21201e; border: 0; border-radius: 3px; font-size: 15px; color: #fff; }
+.board-wrapper { margin: 4px 0; }
+.chessboard { max-width: none; border-radius: 2px; box-shadow: none; }
+.square.light { background: #d5d5d5; }
+.square.dark { background: #a5a5a5; }
+.square.last-move.light { background: #e1c6aa; }
+.square.last-move.dark { background: #ccb49e; }
+.piece-svg-wrap { width: 94%; height: 94%; filter: none; }
+.rank-label, .file-label { font-size: clamp(9px, 1.2vw, 16px); color: #a2a2a2; }
+.dark .rank-label, .dark .file-label { color: #dedede; }
+.board-toolbar { background: #252422; border: 0; border-radius: 4px; padding: 7px; }
+.icon-nav-btn { color: #d1d0ce; }
+.icon-nav-btn:not(:disabled):hover { background: #454440; }
+.sidebar-column.panel { border: 0; border-radius: 7px; box-shadow: none; padding: 0 18px 18px; }
+.review-title { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; margin: 0 -18px 16px; background: #211f1d; border-radius: 7px 7px 0 0; font-size: 16px; font-weight: 900; }
+.review-title span { display: grid; place-items: center; width: 23px; height: 23px; color: white; background: #81b64c; border: 2px solid #d4dfbe; border-radius: 50%; font-size: 14px; }
+.acc-box, .chart-section { border-color: rgba(255,255,255,.07); border-radius: 4px; }
+.acc-box { background: #302e2b; padding: 10px; }
+.white-acc-box, .black-acc-box { border-top: 0; }
+.acc-num { font-size: 24px; }
+.acc-bar-fill, .black-acc-box .acc-bar-fill { background: #81b64c; }
+.chart-section { background: transparent; padding: 8px 0; border: 0; }
+.chart-wrap { height: 74px; border-radius: 3px; }
+.sidebar-tabs { gap: 0; }
+.tab-btn { background: transparent; border-radius: 3px; }
+.tab-btn.active { background: #3b3a36; border-color: transparent; color: #fff; }
+.move-chip { background: #302e2b; border: 0; border-radius: 3px; }
+.move-chip.active { background: #5a743e; box-shadow: none; border: 0; }
+.coach-avatar div { background: #81b64c; color: #fff; }
+.btn-primary { color: #fff; background: linear-gradient(#95c657, #6c9d3e); box-shadow: 0 4px 0 #527a32; }
+.btn-primary:hover:not(:disabled) { background: #a4cf67; }
+.analyze-btn { min-height: 45px; font-size: 14px; }
+@media (max-width: 860px) {
+  .workspace-grid { grid-template-columns: 1fr; gap: 16px; }
+  .chessboard { max-width: none; }
+  .board-column { max-width: 650px; }
+  .sidebar-column { width: 100%; max-width: 650px; justify-self: center; }
+}
+@media (max-width: 520px) {
+  .app-layout { padding: 8px 10px 20px; }
+  .engine-badge { display: none; }
+  .header-actions { gap: 4px; }
+  .header-btn { padding: 0 8px; }
+  .board-toolbar { gap: 3px; padding: 5px; }
+  .board-nav-buttons { gap: 1px; }
+  .icon-nav-btn { width: 27px; }
+  .move-counter { min-width: 42px; }
+  .btn-hint { padding: 6px; }
+}
