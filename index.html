@@ -48,9 +48,17 @@
           <span id="black-mini-score" class="mini-score">—</span>
         </div>
 
-        <!-- Chessboard Container -->
-        <div class="board-wrapper">
-          <div id="board" class="chessboard" role="img" aria-label="رقعة الشطرنج"></div>
+        <!-- Chessboard with Left Evaluation Bar (Chess.com Style) -->
+        <div class="board-layout">
+          <div class="eval-bar-wrapper" id="eval-bar-wrapper" title="شريط تقييم المحرك (Evaluation Bar)">
+            <div class="eval-bar-score" id="eval-bar-score">0.0</div>
+            <div class="eval-bar-track">
+              <div class="eval-bar-fill" id="eval-bar-fill"></div>
+            </div>
+          </div>
+          <div class="board-wrapper">
+            <div id="board" class="chessboard" role="img" aria-label="رقعة الشطرنج"></div>
+          </div>
         </div>
 
         <!-- Player White Bar -->
@@ -127,18 +135,42 @@
 
         <!-- Tabs: Moves List vs Review -->
         <div class="sidebar-tabs" role="tablist">
-          <button id="tab-moves-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">
-            <span>♟️</span> سجل النقلات
+          <button id="tab-review-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">
+            <span>📊</span> تصنيف النقلات والتقرير
           </button>
-          <button id="tab-review-btn" class="tab-btn" type="button" role="tab" aria-selected="false">
-            <span>📊</span> تقرير الأداء
+          <button id="tab-moves-btn" class="tab-btn" type="button" role="tab" aria-selected="false">
+            <span>♟️</span> سجل الحركات
           </button>
         </div>
 
         <!-- Tab Content Area -->
         <div class="tab-content-container">
+          <!-- Review Tab Pane (Coach & Stats Breakdown like Chess.com Game Review) -->
+          <div id="pane-review" class="tab-pane active" role="tabpanel">
+            <div class="coach-card">
+              <div class="coach-avatar" aria-hidden="true">
+                <div>♟</div><span>✦</span>
+              </div>
+              <div class="coach-bubble" id="coach-bubble">
+                اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء وتصنيف الحركات بدقة.
+              </div>
+            </div>
+
+            <div class="stats-section">
+              <div class="stat-head">
+                <span>الأبيض</span>
+                <span>نوع وتصنيف النقلة</span>
+                <span>الأسود</span>
+              </div>
+              <div id="stats" class="stats"></div>
+            </div>
+            <div class="method-note">
+              <span aria-hidden="true">ⓘ</span> مصنفة ومحسوبة بالكامل بمحرك Stockfish 19 بدون خوادم.
+            </div>
+          </div>
+
           <!-- Moves Tab Pane (Chess.com Style Table) -->
-          <div id="pane-moves" class="tab-pane active" role="tabpanel">
+          <div id="pane-moves" class="tab-pane" role="tabpanel" hidden>
             <div class="moves-header-bar">
               <span class="col-num">#</span>
               <span class="col-white">الأبيض</span>
@@ -146,30 +178,6 @@
             </div>
             <div id="moves-list" class="chesscom-moves-list">
               <div class="empty-moves">لنبدأ بإدخال مباراتك.</div>
-            </div>
-          </div>
-
-          <!-- Review Tab Pane (Coach & Stats) -->
-          <div id="pane-review" class="tab-pane" role="tabpanel" hidden>
-            <div class="coach-card">
-              <div class="coach-avatar" aria-hidden="true">
-                <div>♟</div><span>✦</span>
-              </div>
-              <div class="coach-bubble" id="coach-bubble">
-                اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء بدقة.
-              </div>
-            </div>
-
-            <div class="stats-section">
-              <div class="stat-head">
-                <span>التصنيف</span>
-                <span>الأبيض</span>
-                <span>الأسود</span>
-              </div>
-              <div id="stats" class="stats"></div>
-            </div>
-            <div class="method-note">
-              <span aria-hidden="true">ⓘ</span> تُحسب الدقة بخوارزمية احتمالية مستوحاة من Lichess.
             </div>
           </div>
         </div>

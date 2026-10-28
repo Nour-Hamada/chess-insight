@@ -13,24 +13,16 @@ const DEMO = `[Event "Chess Insight Demo"]
 1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6?? 4. Qxf7# 1-0`;
 
 const LABELS = [
-  ['best', 'أفضل نقلة', '★', '#72c98b'],
-  ['excellent', 'ممتازة', '✓', '#b8d886'],
-  ['good', 'جيدة', '●', '#86a9d5'],
-  ['inaccuracy', 'عدم دقة', '?!', '#eaca66'],
-  ['mistake', 'خطأ', '?', '#ed9e5a'],
-  ['blunder', 'هفوة', '??', '#eb676b'],
-];
-
-const DISPLAY_LABELS = [
-  ['brilliant', 'عبقرية', '!!', '#2dcbb4', false],
-  ['great', 'رائعة', '!', '#80b3df', false],
-  ['book', 'افتتاحية', '▣', '#d2a47b', false],
-  ['best', 'الأفضل', '★', '#87d373', true],
-  ['excellent', 'ممتازة', '♥', '#a4d18a', true],
-  ['good', 'جيدة', '✓', '#9ecca5', true],
-  ['inaccuracy', 'عدم دقة', '?!', '#f2c84c', true],
-  ['mistake', 'خطأ', '?', '#f0a15e', true],
-  ['blunder', 'هفوة', '×', '#f06a69', true],
+  ['brilliant', 'عبقرية (Brilliant)', '!!', '#21bcc7'],
+  ['great', 'رائعة (Great)', '!', '#5b8bb0'],
+  ['book', 'افتتاحية (Book)', '📖', '#d5a47e'],
+  ['best', 'الأفضل (Best)', '★', '#81b64c'],
+  ['excellent', 'ممتازة (Excellent)', '👍', '#96bc76'],
+  ['good', 'جيدة (Good)', '✓', '#86b59b'],
+  ['inaccuracy', 'عدم دقة (Inaccuracy)', '?!', '#f7c631'],
+  ['mistake', 'خطأ (Mistake)', '?', '#ffa459'],
+  ['miss', 'إضاعة فرصة (Miss)', '✖', '#fa7069'],
+  ['blunder', 'هفوة فادحة (Blunder)', '??', '#fa412d'],
 ];
 
 const byId = id => document.getElementById(id);
@@ -95,12 +87,13 @@ function resetResults() {
     byId(`${color}-meter`).style.width = '0%';
   }
   byId('chart-wrap').innerHTML = '<div class="chart-empty"><span>↗</span> سيظهر المنحنى بعد التحليل</div>';
-  byId('coach-bubble').textContent = 'المباراة جاهزة للعرض. اضغط على «ابدأ التحليل» وسنستعرض دقة النقلات وما يمكن تحسينه.';
+  byId('coach-bubble').textContent = 'المباراة جاهزة للعرض. اضغط على «ابدأ التحليل» وسنستعرض دقة النقلات وتصنيفاتها بالكامل.';
   const hintBanner = byId('hint-banner');
   if (hintBanner) {
     hintBanner.hidden = true;
     hintBanner.textContent = '';
   }
+  updateEvalBar(0);
   renderStats();
 }
 
@@ -124,6 +117,44 @@ function loadGame(pgn) {
   byId('input-hint').textContent = `تم تحميل ${game.moves.length} نصف نقلة بنجاح.`;
   status('المباراة جاهزة. اضغط «ابدأ التحليل» لتشغيل Stockfish.', 'success');
   renderAll();
+}
+
+function updateEvalBar(cp) {
+  const barFill = byId('eval-bar-fill');
+  const barScore = byId('eval-bar-score');
+  if (!barFill || !barScore) return;
+
+  if (cp === null || cp === undefined) {
+    barFill.style.height = '50%';
+    barScore.textContent = '0.0';
+    barScore.className = 'eval-bar-score';
+    return;
+  }
+
+  let pct = 50;
+  let text = '0.0';
+
+  if (Math.abs(cp) >= 9000) {
+    const distance = Math.round((10000 - Math.abs(cp)) / 50);
+    const sign = cp > 0 ? '' : '-';
+    text = `M${sign}${Math.max(1, distance)}`;
+    pct = cp > 0 ? 98 : 2;
+  } else {
+    pct = 50 + 50 * (2 / (1 + Math.exp(-0.0035 * cp)) - 1);
+    pct = Math.max(3, Math.min(97, pct));
+    const val = (Math.abs(cp) / 100).toFixed(1);
+    text = cp > 0 ? `+${val}` : (cp < 0 ? `-${val}` : '0.0');
+  }
+
+  const finalPct = flipped ? (100 - pct) : pct;
+  barFill.style.height = `${finalPct}%`;
+  barScore.textContent = text;
+
+  if (finalPct >= 50) {
+    barScore.className = 'eval-bar-score white-adv';
+  } else {
+    barScore.className = 'eval-bar-score black-adv';
+  }
 }
 
 function boardCells(fen) {
@@ -185,7 +216,7 @@ function renderBoard() {
       sq.appendChild(axis);
     }
 
-    // Render Chess.com style vector piece SVG (Large & Crisp)
+    // Render Chess.com style vector piece SVG (Large & Crisp - 95%)
     if (entry.piece) {
       const svgCode = getPieceSvg(entry.piece.color, entry.piece.type);
       if (svgCode) {
@@ -195,6 +226,22 @@ function renderBoard() {
         sq.appendChild(pieceWrap);
       }
     }
+
+    // Move classification badge on the target square of the last move (Chess.com style)
+    if (last && last.to === entry.square && analyses && position > 0) {
+      const moveInfo = analyses.moves[position - 1];
+      if (moveInfo && moveInfo.category) {
+        const catMeta = LABELS.find(x => x[0] === moveInfo.category);
+        if (catMeta) {
+          const badge = document.createElement('div');
+          badge.className = `square-badge badge-${moveInfo.category}`;
+          badge.textContent = catMeta[2];
+          badge.title = `${catMeta[1]}`;
+          sq.appendChild(badge);
+        }
+      }
+    }
+
     grid.appendChild(sq);
   });
 
@@ -216,6 +263,10 @@ function renderBoard() {
     }
   }
   byId('move-description').textContent = desc;
+
+  // Update evaluation bar for current position
+  const curEval = analyses?.evals?.[position]?.cpWhite ?? (currentHint?.fen === fen ? currentHint.cp : 0);
+  updateEvalBar(curEval);
 
   // Update hint banner
   const hintBanner = byId('hint-banner');
@@ -317,31 +368,38 @@ function updateActiveMove() {
 
 function renderStats() {
   const root = byId('stats');
+  if (!root) return;
   root.replaceChildren();
-  for (const [cat, name, icon, color, supported] of DISPLAY_LABELS) {
+
+  for (const [cat, name, icon, color] of LABELS) {
     const line = document.createElement('div');
-    line.className = 'stat-line';
-    if (!supported) line.title = 'هذه الفئة لا تُحسب في النسخة الحالية؛ الرمز — لا يعني صفراً.';
-    const title = document.createElement('span');
-    title.className = 'stat-label';
-    const badge = document.createElement('span');
-    badge.className = 'stat-icon';
-    badge.textContent = icon;
-    badge.style.background = `${color}24`;
-    badge.style.color = color;
-    title.append(badge, document.createTextNode(name));
+    line.className = 'stat-row';
 
     const w = document.createElement('strong');
+    w.className = 'stat-count-w';
+    w.textContent = analyses ? String(analyses.counts.w[cat] ?? 0) : '—';
+    if (analyses && (analyses.counts.w[cat] ?? 0) > 0) w.style.color = color;
+
+    const center = document.createElement('div');
+    center.className = 'stat-badge-center';
+
+    const badge = document.createElement('span');
+    badge.className = `stat-circle-icon badge-${cat}`;
+    badge.textContent = icon;
+    badge.style.background = color;
+
+    const title = document.createElement('span');
+    title.className = 'stat-type-title';
+    title.textContent = name;
+
+    center.append(badge, title);
+
     const b = document.createElement('strong');
-    w.textContent = b.textContent = '—';
-    if (supported && analyses) {
-      w.textContent = String(analyses.counts.w[cat] ?? 0);
-      b.textContent = String(analyses.counts.b[cat] ?? 0);
-      w.style.color = b.style.color = color;
-    } else if (!supported) {
-      w.className = b.className = 'unsupported';
-    }
-    line.append(title, w, b);
+    b.className = 'stat-count-b';
+    b.textContent = analyses ? String(analyses.counts.b[cat] ?? 0) : '—';
+    if (analyses && (analyses.counts.b[cat] ?? 0) > 0) b.style.color = color;
+
+    line.append(w, center, b);
     root.appendChild(line);
   }
 }
@@ -357,6 +415,18 @@ function renderChart() {
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
   const area = `${path}L ${x(values.length - 1)},${mid} L ${x(0)},${mid}Z`;
   const cx = x(position), cy = y(values[position]);
+
+  const curVal = values[position];
+  let bubbleText = '0.00';
+  if (curVal !== undefined) {
+    if (Math.abs(curVal) >= 9000) {
+      bubbleText = curVal > 0 ? 'M' : '-M';
+    } else {
+      bubbleText = (curVal >= 0 ? '+' : '') + (curVal / 100).toFixed(2);
+    }
+  }
+  const bubbleX = clamp(cx, 28, width - 28);
+  const bubbleY = clamp(cy - 12, 12, height - 12);
 
   const maxDots = 55;
   const step = Math.max(1, Math.ceil(analyses.moves.length / maxDots));
@@ -379,6 +449,11 @@ function renderChart() {
     ${markers}
     <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
     <circle cx="${cx}" cy="${cy}" r="4.5" fill="#437c5a" stroke="#fff" stroke-width="1.5"/>
+    <g transform="translate(${bubbleX.toFixed(1)}, ${bubbleY.toFixed(1)})" pointer-events="none">
+      <rect x="-22" y="-12" width="44" height="15" rx="3.5" fill="#182026" stroke="#485966" stroke-width="0.9"/>
+      <polygon points="-3,3 3,3 0,6" fill="#182026"/>
+      <text x="0" y="-1.5" fill="#f0f6fc" font-size="9" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${bubbleText}</text>
+    </g>
   </svg>`;
 
   const svg = wrap.querySelector('svg');
@@ -602,9 +677,11 @@ async function showBestMoveHint() {
         from,
         to,
         san,
+        cp: res.cpWhite,
         text: `💡 أفضل نقلة لـ ${turnName}: <strong>${san}</strong> (${from} → ${to}) ${evalText ? `· التقييم: ${evalText}` : ''}`
       };
 
+      updateEvalBar(res.cpWhite);
       renderBoard();
       status(`أفضل نقلة لـ ${turnName}: ${san} (${from} إلى ${to})`, 'success');
     } else {
@@ -624,12 +701,50 @@ function moveAccuracy(before, after, mover) {
   return clamp(103.1668 * Math.exp(-0.04354 * drop) - 3.1669, 0, 100);
 }
 
-function assignCategory(cpLoss, isEngineTopMove) {
-  if (isEngineTopMove || cpLoss <= 10) return 'best';
-  if (cpLoss <= 25) return 'excellent';
-  if (cpLoss <= 50) return 'good';
-  if (cpLoss <= 100) return 'inaccuracy';
-  if (cpLoss <= 200) return 'mistake';
+const COMMON_BOOK_MOVES = new Set([
+  'e2e4', 'e7e5', 'd2d4', 'd7d5', 'c2c4', 'c7c5', 'g1f3', 'b8c6',
+  'g8f6', 'c7c6', 'e7e6', 'g2g3', 'g7g6', 'b1c3', 'f1g2', 'f8g7',
+  'e1g1', 'e8g8', 'd2d3', 'd7d6', 'f2f4', 'f7f5', 'b2b3', 'b7b6',
+  'c1b2', 'c8b7', 'f1e1', 'f8e8', 'a2a3', 'a7a5', 'd1c2', 'd8c7'
+]);
+
+function assignCategory(cpLoss, isEngineTopMove, mover, before, after, moveIndex, uci, san) {
+  // 1. Opening Book
+  if (moveIndex < 8 && cpLoss <= 30 && COMMON_BOOK_MOVES.has(uci)) {
+    return 'book';
+  }
+
+  // 2. Brilliant: Piece sacrifice or winning combination with great outcome
+  if (isEngineTopMove && cpLoss <= 0 && mover * after > 160 && (san.includes('x') || san.includes('+')) && moveIndex > 5) {
+    return 'brilliant';
+  }
+
+  // 3. Great: Critical saving or breakthrough move in difficult/sharp position
+  if (isEngineTopMove && cpLoss <= 8 && Math.abs(after) > 180 && moveIndex > 4) {
+    return 'great';
+  }
+
+  // 4. Best Move
+  if (isEngineTopMove || cpLoss <= 12) return 'best';
+
+  // 5. Excellent Move
+  if (cpLoss <= 28) return 'excellent';
+
+  // 6. Good Move
+  if (cpLoss <= 65) return 'good';
+
+  // 7. Inaccuracy
+  if (cpLoss <= 130) return 'inaccuracy';
+
+  // 8. Mistake
+  if (cpLoss <= 250) return 'mistake';
+
+  // 9. Miss: Blew away a winning advantage (was > +1.8, dropped to drawn or losing)
+  if (mover * before >= 180 && mover * after < 60) {
+    return 'miss';
+  }
+
+  // 10. Blunder
   return 'blunder';
 }
 
@@ -662,7 +777,7 @@ function buildResult(evals) {
     const cpLoss = Math.round(Math.max(0, mover * (before - after)));
     const uci = m.from + m.to + (m.promotion || '');
     const isTopMove = evals[i].best === uci;
-    const category = assignCategory(cpLoss, isTopMove);
+    const category = assignCategory(cpLoss, isTopMove, mover, before, after, i, uci, m.san);
     counts[m.color][category]++;
     return {
       index: i,

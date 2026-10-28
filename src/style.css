@@ -228,9 +228,15 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
    ========================================================= */
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 1fr) 390px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(380px, 420px);
+  gap: 16px;
   align-items: start;
+  direction: ltr; /* Chessboard on the LEFT, Analysis sidebar on the RIGHT */
+}
+
+.board-column,
+.sidebar-column {
+  direction: rtl; /* Preserve natural Arabic text and button layout inside panels */
 }
 
 /* =========================================================
@@ -299,17 +305,92 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   color: var(--accent-green);
 }
 
-/* Chessboard Area - Chess.com Proportions */
+/* Chessboard Area with Left Evaluation Bar (Chess.com Style) */
+.board-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 630px;
+  margin: 6px auto;
+  direction: ltr;
+}
+
+.eval-bar-wrapper {
+  width: 24px;
+  min-width: 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #252422;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  cursor: default;
+}
+
+.eval-bar-track {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  position: relative;
+  width: 100%;
+}
+
+.eval-bar-fill {
+  width: 100%;
+  height: 50%;
+  background: #ffffff;
+  transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.eval-bar-score {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 800 10px var(--font-latin);
+  padding: 2px 3px;
+  border-radius: 3px;
+  z-index: 6;
+  pointer-events: none;
+  white-space: nowrap;
+  transition: all 0.25s ease;
+}
+
+.eval-bar-score.white-adv {
+  bottom: 5px;
+  top: auto;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e1e1e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.eval-bar-score.black-adv {
+  top: 5px;
+  bottom: auto;
+  background: rgba(28, 28, 28, 0.92);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
 .board-wrapper {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 6px 0;
 }
 
 .chessboard {
   width: 100%;
-  max-width: 580px;
+  max-width: 590px;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -331,19 +412,19 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .square.light {
-  background: #eeece1;
+  background: #cbcfcf;
 }
 
 .square.dark {
-  background: #829c86;
+  background: #889094;
 }
 
 .square.last-move.light {
-  background: #d8e49e;
+  background: #f7df9e;
 }
 
 .square.last-move.dark {
-  background: #b3ca77;
+  background: #dfbf72;
 }
 
 .square.check {
@@ -360,18 +441,49 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 /* =========================================================
-   CHESS.COM STYLE VECTOR PIECES (LARGE & CRISP)
+   CHESS.COM STYLE VECTOR PIECES (LARGE & BOLD - 95%)
    ========================================================= */
 .piece-svg-wrap {
-  width: 88%;
-  height: 88%;
+  width: 95%;
+  height: 95%;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.32));
   transition: transform 0.12s ease;
 }
+
+/* Square Classification Badges (Chess.com Move Review style) */
+.square-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 900;
+  z-index: 5;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.badge-brilliant { background: #21bcc7; color: #fff; }
+.badge-great { background: #5b8bb0; color: #fff; }
+.badge-book { background: #d5a47e; color: #fff; font-size: 10px; }
+.badge-best { background: #81b64c; color: #fff; }
+.badge-excellent { background: #96bc76; color: #fff; }
+.badge-good { background: #86b59b; color: #fff; }
+.badge-inaccuracy { background: #f7c631; color: #1f1f1f; }
+.badge-mistake { background: #ffa459; color: #fff; }
+.badge-miss { background: #fa7069; color: #fff; }
+.badge-blunder { background: #fa412d; color: #fff; }
 
 .piece-svg-wrap svg {
   width: 100%;
@@ -850,68 +962,77 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 8px;
-  padding: 6px 9px;
+  padding: 8px 10px;
 }
 
 .stat-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px 46px;
+  grid-template-columns: 50px 1fr 50px;
   align-items: center;
   gap: 4px;
   border-bottom: 1px solid var(--border-light);
   color: var(--text-dim);
-  font-size: 9.5px;
-  padding-bottom: 4px;
-}
-
-.stat-head span:nth-child(n+2) {
+  font-size: 10px;
+  font-weight: 800;
+  padding-bottom: 5px;
   text-align: center;
 }
 
 .stats {
-  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
 }
 
-.stat-line {
+.stat-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px 46px;
+  grid-template-columns: 50px 1fr 50px;
   gap: 4px;
   align-items: center;
   min-height: 32px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: 3px 5px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  border-radius: 6px;
+  transition: background 0.12s ease;
 }
 
-.stat-line:hover {
-  background: rgba(255, 255, 255, 0.03);
+.stat-row:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.stat-label {
+.stat-count-w,
+.stat-count-b {
+  text-align: center;
+  font: 900 13.5px var(--font-latin);
+  color: #bdc8c7;
+}
+
+.stat-badge-center {
   display: flex;
-  gap: 6px;
   align-items: center;
-  font-size: 10.5px;
-  font-weight: 800;
+  justify-content: center;
+  gap: 8px;
 }
 
-.stat-icon {
-  width: 21px;
-  height: 21px;
+.stat-circle-icon {
+  width: 22px;
+  height: 22px;
   flex: none;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font: 900 10.5px var(--font-latin);
+  font: 900 11px var(--font-latin);
+  color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  line-height: 1;
 }
 
-.stat-line strong {
-  text-align: center;
-  font: 900 13px var(--font-latin);
-}
-
-.stat-line .unsupported {
-  color: var(--text-dim) !important;
+.stat-type-title {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #e4edf1;
 }
 
 .method-note {
