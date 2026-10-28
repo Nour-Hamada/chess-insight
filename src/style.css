@@ -1395,3 +1395,29 @@ button, select { line-height: 1.5; }
   .engine-depth select { flex: 1; }
   .analyze-btn { width: 100%; }
 }
+
+/* Shared column geometry keeps headers, counts, icons and labels aligned. */
+.stat-head, .stat-row {
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  column-gap: 8px;
+  padding-inline: 8px;
+  text-align: center;
+}
+.stat-head { padding-block: 0 8px; }
+.stat-row { min-height: 42px; padding-block: 7px; }
+.stat-badge-center {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  justify-content: initial;
+  column-gap: 10px;
+  width: min(100%, 160px);
+  justify-self: center;
+  direction: rtl;
+}
+.stat-circle-icon { grid-column: 1; justify-self: center; }
+.stat-type-title { grid-column: 2; text-align: right; }
+.stat-count-w, .stat-count-b { display: block; line-height: 1.5; }
+@media (max-width: 520px) {
+  .stat-head, .stat-row { grid-template-columns: 30px minmax(0, 1fr) 30px; column-gap: 6px; padding-inline: 6px; }
+}
