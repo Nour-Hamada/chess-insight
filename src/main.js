@@ -36,6 +36,8 @@ let runId = 0;
 let abortRequested = false;
 let analyses = null;
 let currentHint = null; // { fen, uci, from, to, san, cpText }
+let reviewDisplayPosition = -1;
+let showAlternative = true;
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const formatNum = n => Number.isFinite(n) ? n.toFixed(1) : '—';
@@ -80,6 +82,7 @@ function computeGames(pgn) {
 function resetResults() {
   analyses = null;
   currentHint = null;
+  reviewDisplayPosition = -1;
   for (const color of ['white', 'black']) {
     byId(`${color}-accuracy`).innerHTML = '—<small>%</small>';
     byId(`${color}-mini-score`).textContent = '—';
@@ -175,11 +178,49 @@ function boardCells(fen) {
   return cells;
 }
 
+function drawMoveArrow(grid, from, to) {
+  const center = square => {
+    const file = 'abcdefgh'.indexOf(square[0]);
+    const rank = Number(square[1]);
+    const x = flipped ? 7 - file : file;
+    const y = flipped ? rank - 1 : 8 - rank;
+    return { x: (x + 0.5) * 12.5, y: (y + 0.5) * 12.5 };
+  };
+  const start = center(from), end = center(to);
+  const dx = end.x - start.x, dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  if (!length) return;
+  const ux = dx / length, uy = dy / length;
+  const tip = { x: end.x - ux * 1.2, y: end.y - uy * 1.2 };
+  const base = { x: tip.x - ux * 5, y: tip.y - uy * 5 };
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.classList.add('best-move-arrow');
+  const line = document.createElementNS(svg.namespaceURI, 'line');
+  line.setAttribute('x1', start.x); line.setAttribute('y1', start.y);
+  line.setAttribute('x2', base.x); line.setAttribute('y2', base.y);
+  const head = document.createElementNS(svg.namespaceURI, 'polygon');
+  head.setAttribute('points', `${tip.x},${tip.y} ${base.x - uy * 3.5},${base.y + ux * 3.5} ${base.x + uy * 3.5},${base.y - ux * 3.5}`);
+  svg.append(line, head);
+  grid.appendChild(svg);
+}
+
 function renderBoard() {
   const grid = byId('board');
   grid.replaceChildren();
-  const fen = game ? game.fens[position] : START_FEN;
-  const last = game && position > 0 ? game.moves[position - 1] : null;
+  const currentFen = game ? game.fens[position] : START_FEN;
+  const info = position > 0 ? analyses?.moves[position - 1] : null;
+  const alternative = info?.best && info.best !== info.uci && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(info.best) ? info.best : null;
+  if (reviewDisplayPosition !== position) {
+    reviewDisplayPosition = position;
+    showAlternative = true;
+  }
+  const hint = currentHint?.fen === currentFen ? currentHint : null;
+  const reviewingAlternative = Boolean(alternative && showAlternative && !hint);
+  const fen = reviewingAlternative ? game.fens[position - 1] : currentFen;
+  const last = !reviewingAlternative && game && position > 0 ? game.moves[position - 1] : null;
+  const arrow = reviewingAlternative ? { from: alternative.slice(0, 2), to: alternative.slice(2, 4) } : hint;
   const cells = boardCells(fen);
   const view = flipped ? [...cells].reverse() : cells;
 
@@ -195,9 +236,9 @@ function renderBoard() {
     }
 
     // Best move hint highlights
-    if (currentHint && currentHint.fen === fen) {
-      if (entry.square === currentHint.from) sq.classList.add('hint-from');
-      if (entry.square === currentHint.to) sq.classList.add('hint-to');
+    if (arrow) {
+      if (entry.square === arrow.from) sq.classList.add('hint-from');
+      if (entry.square === arrow.to) sq.classList.add('hint-to');
     }
 
     const file = flipped ? 'hgfedcba'[i % 8] : 'abcdefgh'[i % 8];
@@ -245,6 +286,14 @@ function renderBoard() {
     grid.appendChild(sq);
   });
 
+  if (arrow) drawMoveArrow(grid, arrow.from, arrow.to);
+  const reviewToggle = byId('alternative-toggle');
+  reviewToggle.hidden = !alternative || Boolean(hint);
+  reviewToggle.textContent = reviewingAlternative
+    ? 'السهم يوضح البديل قبل النقلة · عرض النقلة الفعلية'
+    : 'عرض النقلة الأفضل بالسهم';
+  reviewToggle.setAttribute('aria-pressed', String(reviewingAlternative));
+
   byId('move-counter').textContent = `${position} / ${game?.moves.length || 0}`;
 
   let desc = 'بداية المباراة';
@@ -265,7 +314,8 @@ function renderBoard() {
   byId('move-description').textContent = desc;
 
   // Update evaluation bar for current position
-  const curEval = analyses?.evals?.[position]?.cpWhite ?? (currentHint?.fen === fen ? currentHint.cp : 0);
+  const evalPosition = reviewingAlternative ? position - 1 : position;
+  const curEval = analyses?.evals?.[evalPosition]?.cpWhite ?? (hint ? hint.cp : 0);
   updateEvalBar(curEval);
 
   // Update hint banner
@@ -644,6 +694,9 @@ function analyzePosition(fen, depth) {
 // Interactive Best Move Calculation for Current Position
 async function showBestMoveHint() {
   if (!game) return;
+  showAlternative = false;
+  currentHint = null;
+  renderBoard();
   const fen = game.fens[position];
   const board = new Chess(fen);
   if (board.isGameOver()) {
@@ -1014,6 +1067,11 @@ byId('pgn-modal-file').addEventListener('change', handleFileInput);
 byId('analyze-btn').addEventListener('click', startAnalysis);
 byId('cancel-btn').addEventListener('click', cancelAnalysis);
 byId('hint-btn').addEventListener('click', showBestMoveHint);
+byId('alternative-toggle').addEventListener('click', () => {
+  showAlternative = !showAlternative;
+  currentHint = null;
+  renderBoard();
+});
 
 byId('first-btn').addEventListener('click', () => {
   position = 0;
@@ -1093,3 +1151,4 @@ window.addEventListener('keydown', e => {
 // Startup initialization
 byId('pgn-text').value = DEMO;
 loadGame(DEMO);
+
