@@ -36,11 +36,10 @@ let runId = 0;
 let abortRequested = false;
 let analyses = null;
 let currentHint = null; // { fen, uci, from, to, san, cpText }
-let reviewDisplayPosition = -1;
-let showAlternative = true;
 let lastRenderedPosition = 0;
 let audioContext = null;
-let lastSoundTime = 0;
+let lastSoundTime = -Infinity;
+const moveSoundBuffers = new Map();
 let soundEnabled = true;
 try { soundEnabled = localStorage.getItem('chess-insight-sound') !== 'off'; } catch {}
 
@@ -87,7 +86,6 @@ function computeGames(pgn) {
 function resetResults() {
   analyses = null;
   currentHint = null;
-  reviewDisplayPosition = -1;
   for (const color of ['white', 'black']) {
     byId(`${color}-accuracy`).innerHTML = '—<small>%</small>';
     byId(`${color}-mini-score`).textContent = '—';
@@ -220,34 +218,62 @@ function updateSoundControl() {
   button.setAttribute('aria-pressed', String(soundEnabled));
 }
 
-// A brief wooden tap generated locally; no external audio file is needed.
-function playMoveSound() {
+// Original dry wooden-piece sounds, synthesized once and cached locally.
+function createMoveSoundBuffer(context, capture = false) {
+  const duration = capture ? 0.15 : 0.11;
+  const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+  const samples = buffer.getChannelData(0);
+  let seed = capture ? 9277 : 6173;
+  let smoothNoise = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const t = i / context.sampleRate;
+    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+    const noise = (seed >>> 0) / 2147483648 - 1;
+    smoothNoise += 0.3 * (noise - smoothNoise);
+    const attack = Math.min(1, t / 0.0007);
+    const click = (noise - smoothNoise) * Math.exp(-t * 650) * 0.7;
+    const wood = smoothNoise * Math.exp(-t * 95) * 0.8;
+    const body = (Math.sin(2 * Math.PI * 740 * t) * 0.18
+      + Math.sin(2 * Math.PI * 1260 * t) * 0.13
+      + Math.sin(2 * Math.PI * 2130 * t) * 0.08) * Math.exp(-t * 115);
+    // A quieter second contact gives captures a slightly heavier clack.
+    const secondTap = capture && t > 0.025
+      ? smoothNoise * Math.exp(-(t - 0.025) * 160) * 0.32 : 0;
+    samples[i] = Math.tanh((click + wood + body + secondTap) * 1.5) * attack;
+  }
+  return buffer;
+}
+
+function playMoveSound(capture = false) {
   if (!soundEnabled) return;
   try {
     const AudioEngine = window.AudioContext || window.webkitAudioContext;
     if (!AudioEngine) return;
     audioContext ||= new AudioEngine();
-    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
     const now = audioContext.currentTime;
-    if (now - lastSoundTime < 0.09 && lastSoundTime !== 0) return;
+    if (now - lastSoundTime < 0.075) return;
     lastSoundTime = now;
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(620, now);
-    oscillator.frequency.exponentialRampToValueAtTime(220, now + 0.07);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.19, now + 0.004);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
-    oscillator.connect(gain).connect(audioContext.destination);
-    oscillator.start(now);
-    oscillator.stop(now + 0.1);
+    const play = () => {
+      if (!soundEnabled || audioContext.state !== 'running') return;
+      const key = capture ? 'capture' : 'move';
+      if (!moveSoundBuffers.has(key)) moveSoundBuffers.set(key, createMoveSoundBuffer(audioContext, capture));
+      const source = audioContext.createBufferSource();
+      const volume = audioContext.createGain();
+      source.buffer = moveSoundBuffers.get(key);
+      volume.gain.value = 0.7;
+      source.connect(volume).connect(audioContext.destination);
+      source.onended = () => { source.disconnect(); volume.disconnect(); };
+      source.start();
+    };
+    if (audioContext.state === 'suspended') audioContext.resume().then(play).catch(() => {});
+    else play();
   } catch {} // Audio availability must never block board navigation.
 }
 
 function renderBoard() {
   if (position !== lastRenderedPosition) {
-    playMoveSound();
+    const soundedMove = game?.moves[Math.max(position, lastRenderedPosition) - 1];
+    playMoveSound(Boolean(soundedMove?.captured));
     lastRenderedPosition = position;
   }
   const grid = byId('board');
@@ -255,15 +281,12 @@ function renderBoard() {
   const currentFen = game ? game.fens[position] : START_FEN;
   const info = position > 0 ? analyses?.moves[position - 1] : null;
   const alternative = info?.best && info.best !== info.uci && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(info.best) ? info.best : null;
-  if (reviewDisplayPosition !== position) {
-    reviewDisplayPosition = position;
-    showAlternative = true;
-  }
   const hint = currentHint?.fen === currentFen ? currentHint : null;
-  const reviewingAlternative = Boolean(alternative && showAlternative && !hint);
-  const fen = reviewingAlternative ? game.fens[position - 1] : currentFen;
-  const last = !reviewingAlternative && game && position > 0 ? game.moves[position - 1] : null;
-  const arrow = reviewingAlternative ? { from: alternative.slice(0, 2), to: alternative.slice(2, 4) } : hint;
+  const fen = currentFen;
+  const last = game && position > 0 ? game.moves[position - 1] : null;
+  // Keep the played position visible. The arrow shows the alternative's original
+  // source and destination without moving a piece or rewinding the board.
+  const arrow = hint || (alternative ? { from: alternative.slice(0, 2), to: alternative.slice(2, 4) } : null);
   const cells = boardCells(fen);
   const view = flipped ? [...cells].reverse() : cells;
 
@@ -330,13 +353,6 @@ function renderBoard() {
   });
 
   if (arrow) drawMoveArrow(grid, arrow.from, arrow.to);
-  const reviewToggle = byId('alternative-toggle');
-  reviewToggle.hidden = !alternative || Boolean(hint);
-  reviewToggle.textContent = reviewingAlternative
-    ? 'السهم يوضح البديل قبل النقلة · عرض النقلة الفعلية'
-    : 'عرض النقلة الأفضل بالسهم';
-  reviewToggle.setAttribute('aria-pressed', String(reviewingAlternative));
-
   byId('move-counter').textContent = `${position} / ${game?.moves.length || 0}`;
 
   let desc = 'بداية المباراة';
@@ -357,8 +373,7 @@ function renderBoard() {
   byId('move-description').textContent = desc;
 
   // Update evaluation bar for current position
-  const evalPosition = reviewingAlternative ? position - 1 : position;
-  const curEval = analyses?.evals?.[evalPosition]?.cpWhite ?? (hint ? hint.cp : 0);
+  const curEval = analyses?.evals?.[position]?.cpWhite ?? (hint ? hint.cp : 0);
   updateEvalBar(curEval);
 
   // Update hint banner
@@ -499,82 +514,100 @@ function renderStats() {
 
 function renderChart() {
   const wrap = byId('chart-wrap');
-  if (!analyses?.evals) return;
+  if (!analyses?.evals?.length) return;
   const values = analyses.evals.map(e => e.cpWhite);
-  const width = 800, height = 60, pad = 6, mid = 30, usable = width - pad * 2;
+  const width = Math.max(200, Math.round(wrap.clientWidth));
+  const height = 74, pad = 5, mid = height / 2;
+  const usable = width - pad * 2;
   const x = i => pad + usable * i / Math.max(1, values.length - 1);
-  const y = cp => mid - 24 * Math.tanh(cp / 320);
-  const points = values.map((v, i) => [x(i), y(v)]);
-  const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
-  const area = `${path}L ${x(values.length - 1)},${mid} L ${x(0)},${mid}Z`;
-  const cx = x(position), cy = y(values[position]);
-
-  const curVal = values[position];
-  let bubbleText = '0.00';
-  if (curVal !== undefined) {
-    if (Math.abs(curVal) >= 9000) {
-      bubbleText = curVal > 0 ? 'M' : '-M';
-    } else {
-      bubbleText = (curVal >= 0 ? '+' : '') + (curVal / 100).toFixed(2);
-    }
-  }
-  const bubbleX = clamp(cx, 28, width - 28);
-  const bubbleY = clamp(cy - 12, 12, height - 12);
-
-  const maxDots = 55;
-  const step = Math.max(1, Math.ceil(analyses.moves.length / maxDots));
-  const markers = analyses.moves.map((m, i) => {
-    if (i % step && i !== position - 1) return '';
-    const meta = LABELS.find(l => l[0] === m.category);
-    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 5 : 2.6}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.8"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
+  const y = cp => mid - (mid - pad) * Math.tanh(cp / 320);
+  const points = values.map((value, i) => `${x(i).toFixed(2)},${y(value).toFixed(2)}`);
+  const boundary = points.map((point, i) => `${i ? 'L' : 'M'}${point}`).join(' ');
+  // White's share fills down to the bottom, with Black's share above it.
+  const area = `${boundary} L${width},${height} L0,${height} L0,${y(values[0]).toFixed(2)}Z`;
+  const step = Math.max(1, Math.ceil(analyses.moves.length / 75));
+  const markers = analyses.moves.map((move, i) => {
+    const important = ['blunder', 'mistake', 'miss', 'brilliant', 'great'].includes(move.category);
+    if (i % step && i !== position - 1 && !important) return '';
+    const meta = LABELS.find(label => label[0] === move.category);
+    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="3.5" fill="${meta?.[3] || '#99968f'}"><title>${i + 1} · ${move.san}: ${meta?.[1] || ''}</title></circle>`;
   }).join('');
 
-  wrap.innerHTML = `<svg class="eval-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="منحنى تقييم المباراة، انقر على نقطة للانتقال إليها">
-    <defs>
-      <linearGradient id="eval-fill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#a8b1aa" stop-opacity=".92"/>
-        <stop offset="100%" stop-color="#747e79" stop-opacity=".65"/>
-      </linearGradient>
-    </defs>
-    <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#9ea6a0" stroke-width="1.2"/>
-    <path d="${area}" fill="url(#eval-fill)"/>
-    <path d="${path}" fill="none" stroke="#46544d" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+  // Keep this SVG mounted while dragging so pointer capture remains intact.
+  let svg = wrap.querySelector('.eval-chart');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('eval-chart');
+    wrap.replaceChildren(svg);
+  }
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('tabindex', '0');
+  svg.setAttribute('aria-label', `منحنى تقييم المباراة: الأبيض أسفل المنحنى والأسود أعلاه. النقلة ${position} من ${values.length - 1}. انقر أو اسحب أو استخدم مفاتيح الأسهم للتنقل.`);
+  svg.innerHTML = `
+    <path d="${area}" fill="#fff"/>
+    <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#ffffff" stroke-opacity=".19" stroke-width="1.4"/>
     ${markers}
-    <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
-    <circle cx="${cx}" cy="${cy}" r="4.5" fill="#437c5a" stroke="#fff" stroke-width="1.5"/>
-    <g transform="translate(${bubbleX.toFixed(1)}, ${bubbleY.toFixed(1)})" pointer-events="none">
-      <rect x="-22" y="-12" width="44" height="15" rx="3.5" fill="#182026" stroke="#485966" stroke-width="0.9"/>
-      <polygon points="-3,3 3,3 0,6" fill="#182026"/>
-      <text x="0" y="-1.5" fill="#f0f6fc" font-size="9" font-weight="800" font-family="system-ui, -apple-system, sans-serif" text-anchor="middle">${bubbleText}</text>
-    </g>
-  </svg>`;
+    <line x1="${x(position)}" y1="0" x2="${x(position)}" y2="${height}" stroke="#c7c4bd" stroke-width="1" stroke-opacity=".42"/>
+    <g class="chart-tooltip" visibility="hidden" pointer-events="none">
+      <rect x="-25" y="-19" width="50" height="18" rx="3" fill="#242320"/>
+      <text x="0" y="-6" text-anchor="middle" fill="#fff" font-size="11" font-family="system-ui" font-weight="700"></text>
+    </g>`;
 
-  const svg = wrap.querySelector('svg');
-  const jumpToClientX = (clientX) => {
+  const indexAt = clientX => {
     const rect = svg.getBoundingClientRect();
-    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
-    position = Math.round(ratio * (values.length - 1));
+    const plotX = (clientX - rect.left) * width / rect.width;
+    return Math.round(clamp((plotX - pad) / usable, 0, 1) * (values.length - 1));
+  };
+  const jumpTo = index => {
+    if (position === index) return;
+    position = index;
+    currentHint = null;
     renderBoard();
     updateActiveMove();
     renderChart();
   };
-
-  svg.addEventListener('click', ev => jumpToClientX(ev.clientX));
-
-  let dragging = false;
-  svg.addEventListener('pointerdown', ev => {
-    dragging = true;
-    svg.setPointerCapture(ev.pointerId);
-    jumpToClientX(ev.clientX);
-  });
-  svg.addEventListener('pointermove', ev => {
-    if (dragging) jumpToClientX(ev.clientX);
-  });
-  svg.addEventListener('pointerup', ev => {
-    dragging = false;
-    try { svg.releasePointerCapture(ev.pointerId); } catch {}
-  });
-  svg.addEventListener('pointercancel', () => { dragging = false; });
+  const showTooltip = index => {
+    const value = values[index];
+    const text = Math.abs(value) >= 9000 ? (value > 0 ? 'M' : '−M')
+      : `${value >= 0 ? '+' : ''}${(value / 100).toFixed(1)}`;
+    const tooltip = svg.querySelector('.chart-tooltip');
+    tooltip.setAttribute('transform', `translate(${clamp(x(index), 27, width - 27)},${clamp(y(value), 22, height - 3)})`);
+    tooltip.setAttribute('visibility', 'visible');
+    tooltip.querySelector('text').textContent = text;
+  };
+  svg.onpointerdown = event => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    svg.focus({ preventScroll: true });
+    svg.setPointerCapture(event.pointerId);
+    jumpTo(indexAt(event.clientX));
+  };
+  svg.onpointermove = event => {
+    const index = indexAt(event.clientX);
+    if (svg.hasPointerCapture(event.pointerId)) jumpTo(index);
+    showTooltip(index);
+  };
+  svg.onpointerup = event => {
+    if (svg.hasPointerCapture(event.pointerId)) {
+      jumpTo(indexAt(event.clientX));
+      svg.releasePointerCapture(event.pointerId);
+    }
+  };
+  svg.onpointercancel = event => {
+    if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+  };
+  svg.onpointerleave = () => svg.querySelector('.chart-tooltip').setAttribute('visibility', 'hidden');
+  svg.onkeydown = event => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? values.length - 1
+      : clamp(position + (event.key === 'ArrowRight' ? 1 : -1), 0, values.length - 1);
+    jumpTo(next);
+    showTooltip(next);
+  };
 }
 
 function renderAll() {
@@ -737,7 +770,6 @@ function analyzePosition(fen, depth) {
 // Interactive Best Move Calculation for Current Position
 async function showBestMoveHint() {
   if (!game) return;
-  showAlternative = false;
   currentHint = null;
   renderBoard();
   const fen = game.fens[position];
@@ -1117,11 +1149,7 @@ byId('sound-toggle').addEventListener('click', () => {
   if (soundEnabled) playMoveSound();
 });
 updateSoundControl();
-byId('alternative-toggle').addEventListener('click', () => {
-  showAlternative = !showAlternative;
-  currentHint = null;
-  renderBoard();
-});
+
 
 byId('first-btn').addEventListener('click', () => {
   position = 0;
@@ -1197,6 +1225,16 @@ window.addEventListener('keydown', e => {
     renderChart();
   }
 }, { passive: false });
+
+// Redraw at the container's real width so dots stay round on every screen.
+let chartWidth = 0;
+new ResizeObserver(entries => {
+  const width = Math.round(entries[0].contentRect.width);
+  if (width !== chartWidth) {
+    chartWidth = width;
+    renderChart();
+  }
+}).observe(byId('chart-wrap'));
 
 // Startup initialization
 byId('pgn-text').value = DEMO;
