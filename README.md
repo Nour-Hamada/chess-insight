@@ -1,68 +1,93 @@
-# Chess Insight — Free PGN Game Review
+# Chess Insight — استوديو تحليل مباريات الشطرنج
 
-A self-hosted, Arabic-first, zero-backend chess game review site. Enter a PGN, navigate the board, run Stockfish 19 Lite in the browser, and see estimated accuracy for White and Black, move classifications, suggestions, and an evaluation chart.
+موقع احترافي مجاني بالكامل لتحليل مباريات الشطرنج بدقة عالية باستخدام **Stockfish 19** عبر **WebAssembly** مباشرة داخل المتصفح، بدون خوادم وبدون أي اشتراك أو واجهات برمجة مدفوعة.
 
-## Prerequisites
+---
 
-- Node.js 20.19+ (or Node.js 22.12+), and npm
-- An up-to-date browser supporting WebAssembly
+## 🌟 المميزات الرئيسية
 
-## Start locally
+- **تحليل محلي 100% داخل المتصفح:** يعمل محرك Stockfish 19 Lite في خلفية المتصفح عبر Web Worker وWebAssembly دون إرسال بياناتك لأي سيرفر خارجي.
+- **دعم PGN كامل:** يدعم إدخال مباريات بصيغة PGN من Chess.com وLichess، أو رفع ملفات PGN مباشرة.
+- **حساب دقة كل لاعب:** خوارزمية دقة متطورة مستوحاة من منهجية Lichess تقيس جودة النقلات (Harmonic + Volatility Weighted Mean).
+- **منحنى الأفضلية التفاعلي:** رسم بياني متجاوب يعرض تغيّر التقييم طوال المباراة مع إمكانية النقر أو السحب للانتقال لأي نقلة.
+- **تصنيف النقلات:** تصنيف فوري لكل نقلة (الأفضل ★، ممتازة ♥، جيدة ✓، عدم دقة ؟!، خطأ ؟، هفوة ×).
+- **اقتراحات المحرك:** عرض النقلة البديلة الأفضل مع تدوين الشطرنج القياسي (SAN).
+- **رقعة شطرنج أنيقة ومتجاوبة:** دعم قلب الرقعة، إبراز النقلة الأخيرة، تمييز الملك المهدد بالكش، والتنقل بالأسهم ولوحة المفاتيح.
+- **جاهز للنشر على Cloudflare Pages:** إعدادات مسبقة للرؤوس `_headers` لدعم WebAssembly والتخزين المؤقت.
 
+---
+
+## 🚀 التشغيل المحلي (Quick Start)
+
+### المتطلبات
+- **Node.js** (إصدار 20 أو 22 فما فوق) و **npm**.
+
+### 1. تثبيت الحزم
 ```bash
 npm install
+```
+*(أو `npm.cmd install` على أنظمة Windows إذا كانت سياسة تشغيل السكربتات مقيدة).*
+
+يقوم أمر التثبيت بنسخ ملفات محرك Stockfish 19 (`.js` و `.wasm`) تلقائياً إلى مجلد `public/engine/`.
+
+### 2. بدء خادم التطوير
+```bash
 npm run dev
 ```
+افتح الرابط في المتصفح (عادة: `http://localhost:5173`).
 
-Open the URL Vite prints (usually http://localhost:5173). **Do not open `index.html` using `file://`** because the worker assets and module imports need HTTP(S).
+---
 
-The first `npm install` fetches free packages online and copies the Stockfish browser engine (`.js` and `.wasm`) to `public/engine`. After that, move analysis runs in your browser without paid APIs or server processing.
+## 📦 البناء والنشر على Cloudflare Pages
 
-## Build for production
-
+### البناء للإنتاج:
 ```bash
 npm run build
 ```
+سيتم إنشاء مجلد **`dist/`** المحتوي على كل الملفات الجاهزة للنشر مع ملف `_headers` المخصص لـ Cloudflare Pages.
 
-Deploy the generated **`dist/`** folder to a static host such as Cloudflare Pages, Netlify, or your own HTTPS server. Example Cloudflare Pages settings:
-- Build command: `npm run build`
-- Output directory: `dist`
-- Node.js version: 22
+### إعدادات Cloudflare Pages:
+1. أنشئ مشروعاً جديداً في **Cloudflare Pages** واربطه بمستودع GitHub.
+2. حدد إعدادات البناء:
+   - **Framework preset:** `Vite`
+   - **Build command:** `npm run build`
+   - **Build output directory:** `dist`
+   - **Environment Variable (اختياري):** `NODE_VERSION = 22`
+3. اضغط **Save and Deploy**.
 
-All browser analysis runs locally; however, downloading the site and the included engine assets requires network access unless served offline. Fonts are requested from Google Fonts; remove that `@import` line for a fully self-contained deployment.
+---
 
-## Accuracy methodology
+## 🔗 ربط المشروع بمستودع GitHub (`chess-insight`)
 
-- Every position is evaluated independently by Stockfish. Depth can be set to 8, 12, or 16.
-- Evaluations are normalized to **White's perspective**.
-- For each move, convert positions from centipawns to the mover's winning chance using:
-  `Win% = 100 / (1 + exp(-0.00368208 * cp))`
-- Estimated move accuracy is `clamp(103.1668 * exp(-0.04354 * max(0, WinBefore - WinAfter)) - 3.1669, 0, 100)`.
-- Game accuracy is an **approximation** combining a local-volatility weighted mean and harmonic mean of move accuracies, inspired by Lichess. The weighting windows differ from Lichess's production implementation; **do not expect identical accuracy figures**.
-- Categories are illustrative thresholds on **centipawn loss**, not Chess.com labels: Best ≤10cp (or Stockfish top move), Excellent ≤25cp, Good ≤50cp, Inaccuracy ≤100cp, Mistake ≤200cp, Blunder >200cp. These thresholds are product choices, not universal chess standards.
-- Mate scores use a large signed centipawn equivalent. Unusual mate transitions, insufficient-material positions and other special cases can skew the estimated results.
-- "Brilliant", "Book", "Great" and "Game Rating" require additional heuristics or databases and are not provided in the MVP.
-- High engine depth will use more CPU and time.
+المشروع مُهيأ بالفعل محلياً بمستودع Git نظيف على الفرع `main`. لربطه بمستودعك الجديد على GitHub:
 
-## Privacy & limits
+1. أنشئ مستودعاً جديداً فارغاً على حسابك في GitHub باسم:
+   `chess-insight`
+2. نفّذ الأمرين التاليين لربط المستودع ورفع الملفات:
+   ```bash
+   git remote add origin https://github.com/<اسم_حسابك>/chess-insight.git
+   git push -u origin main
+   ```
 
-- The PGN is only processed in your browser. The project does not include a database, login, analytics, or a server API.
-- Input is limited to a single PGN game of up to 500 half-moves and 2 MB for uploaded files.
-- Currently supports standard chess PGN (not Chess960 or variants).
-- This is an initial implementation. Validate with additional real-world PGNs before public launch.
+---
 
-## Source/license acknowledgements
+## ♟ منهجية حساب الدقة والتقييم
 
-Stockfish.js (the bundled browser chess engine installed through npm) is licensed **GPL-3.0**. Its source, license notice and official distribution are available at <https://github.com/nmrugg/stockfish.js>. Stockfish engine source is at <https://github.com/official-stockfish/Stockfish>.
+- **التقييم:** تقييم كل وضعية بشكل مستقل من منظور الأبيض، وتطبيق دالة الفوز:
+  $$\text{Win\%} = \frac{100}{1 + e^{-0.00368208 \times \text{cp}}}$$
+- **دقة النقلة:**
+  $$\text{Accuracy} = \text{clamp}(103.1668 \times e^{-0.04354 \times \Delta\text{Win\%}} - 3.1669, 0, 100)$$
+- **تصنيف النقلات حسب خسارة السنتيبون (Centipawn Loss):**
+  - **الأفضل (Best):** نقلة المحرك الأولى أو خسارة $\le 10$ سنتيبون.
+  - **ممتازة (Excellent):** خسارة $\le 25$ سنتيبون.
+  - **جيدة (Good):** خسارة $\le 50$ سنتيبون.
+  - **عدم دقة (Inaccuracy):** خسارة $\le 100$ سنتيبون.
+  - **خطأ (Mistake):** خسارة $\le 200$ سنتيبون.
+  - **هفوة (Blunder):** خسارة $> 200$ سنتيبون.
 
-chess.js is licensed under **BSD-2-Clause**: <https://github.com/jhlywa/chess.js>.
+---
 
-Lichess documents its accuracy model at <https://lichess.org/page/accuracy>.
+## 📄 التراخيص
 
-When redistributing the site with the Stockfish binary, comply with the applicable GPL obligations, including supplying the corresponding engine source/license information. This demo project is not affiliated with Chess.com or Lichess.
-
-## واجهة العرض (HTML)
-
-- افتح `preview.html` بنقرتين لعرض **معاينة تفاعلية للواجهة** من دون أي تثبيت؛ النسب المعروضة فيها أمثلة تصميمية لا تنتج عن Stockfish.
-- شغّل `npm install` ثم `npm run dev` لاستخدام التطبيق الفعلي لتحليل PGN بمحرك Stockfish. ملف `index.html` جزء من مشروع Vite وليس صفحة يمكن تشغيلها مباشرة بالنقر عليها.
-- التصميم يدعم العربية واتجاه RTL، شاشة الحاسوب والهاتف، ويُظهر الفئات التي لا يحسبها المحرك بشرطة (`—`) بدلاً من الصفر.
+- **Stockfish.js:** مرخص تحت رخصة **GPL-3.0**.
+- **chess.js:** مرخص تحت رخصة **BSD-2-Clause**.
