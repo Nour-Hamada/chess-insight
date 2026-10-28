@@ -96,7 +96,7 @@ function resetResults() {
     byId(`${color}-accuracy-sub`).textContent = 'لم يُحلّل بعد';
     byId(`${color}-meter`).style.width = '0%';
   }
-  byId('chart-wrap').innerHTML = '<div class="chart-empty"><span>↗</span> سيظهر منحنى المباراة هنا بعد التحليل</div>';
+  byId('chart-wrap').innerHTML = '<div class="chart-empty"><span>↗</span> سيظهر المنحنى بعد التحليل</div>';
   byId('coach-bubble').textContent = 'المباراة جاهزة للعرض. اضغط على «ابدأ التحليل» وسنستعرض دقة النقلات وما يمكن تحسينه.';
   renderStats();
 }
@@ -214,14 +214,13 @@ function renderMoves() {
     root.innerHTML = '<div class="empty-moves">لنبدأ بإدخال مباراتك.</div>';
     return;
   }
-  byId('move-list-label').textContent = `${game.moves.length} نقلة نصفية`;
 
   for (let i = 0; i < game.moves.length; i += 2) {
     const row = document.createElement('div');
     row.className = 'move-row';
     const num = document.createElement('span');
     num.className = 'move-number';
-    num.textContent = String(Math.floor(i / 2) + 1).padStart(2, '0');
+    num.textContent = `${Math.floor(i / 2) + 1}.`;
     row.appendChild(num);
 
     for (let j = i; j < Math.min(i + 2, game.moves.length); j++) {
@@ -231,7 +230,7 @@ function renderMoves() {
       btn.type = 'button';
       btn.className = 'move-chip' + (position === j + 1 ? ' active' : '');
       btn.title = info
-        ? `دقة تقديرية ${formatNum(info.accuracy)}% · خسارة ${info.cpLoss} سنتيبون`
+        ? `دقة تقديرية ${formatNum(info.accuracy)}% · فقد ${info.cpLoss} سنتيبون`
         : 'انقر لعرض هذه النقلة';
 
       btn.addEventListener('click', () => {
@@ -253,7 +252,7 @@ function renderMoves() {
           marker.style.color = lbl[3];
           marker.textContent = lbl[2];
           btn.appendChild(marker);
-          btn.title = `${lbl[1]} · ${formatNum(info.accuracy)}% · فقد ${info.cpLoss} سنتيبون`;
+          btn.title = `${lbl[1]} · دقة ${formatNum(info.accuracy)}% · فقد ${info.cpLoss} سنتيبون`;
         }
       }
       row.appendChild(btn);
@@ -311,20 +310,20 @@ function renderChart() {
   const wrap = byId('chart-wrap');
   if (!analyses?.evals) return;
   const values = analyses.evals.map(e => e.cpWhite);
-  const width = 900, height = 154, pad = 13, mid = 77, usable = width - pad * 2;
+  const width = 800, height = 80, pad = 8, mid = 40, usable = width - pad * 2;
   const x = i => pad + usable * i / Math.max(1, values.length - 1);
-  const y = cp => mid - 61 * Math.tanh(cp / 320);
+  const y = cp => mid - 32 * Math.tanh(cp / 320);
   const points = values.map((v, i) => [x(i), y(v)]);
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
   const area = `${path}L ${x(values.length - 1)},${mid} L ${x(0)},${mid}Z`;
   const cx = x(position), cy = y(values[position]);
 
-  const maxDots = 75;
+  const maxDots = 60;
   const step = Math.max(1, Math.ceil(analyses.moves.length / maxDots));
   const markers = analyses.moves.map((m, i) => {
     if (i % step && i !== position - 1) return '';
     const meta = LABELS.find(l => l[0] === m.category);
-    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 6 : 3.6}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="1.1"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
+    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 5 : 2.8}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.9"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
   }).join('');
 
   wrap.innerHTML = `<svg class="eval-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="منحنى تقييم المباراة، انقر على نقطة للانتقال إليها">
@@ -334,12 +333,12 @@ function renderChart() {
         <stop offset="100%" stop-color="#747e79" stop-opacity=".65"/>
       </linearGradient>
     </defs>
-    <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#9ea6a0" stroke-width="1.6"/>
+    <line x1="0" y1="${mid}" x2="${width}" y2="${mid}" stroke="#9ea6a0" stroke-width="1.2"/>
     <path d="${area}" fill="url(#eval-fill)"/>
-    <path d="${path}" fill="none" stroke="#46544d" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${path}" fill="none" stroke="#46544d" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
     ${markers}
-    <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
-    <circle cx="${cx}" cy="${cy}" r="5.5" fill="#437c5a" stroke="#fff" stroke-width="2"/>
+    <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.8" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+    <circle cx="${cx}" cy="${cy}" r="4.5" fill="#437c5a" stroke="#fff" stroke-width="1.6"/>
   </svg>`;
 
   const svg = wrap.querySelector('svg');
@@ -377,7 +376,6 @@ function renderAll() {
   renderChart();
 }
 
-// Standardize Stockfish evaluation as White POV
 function parseUciEval(line, fen) {
   const match = line.match(/\bscore\s+(cp|mate)\s+(-?\d+)/);
   if (!match || /\b(?:lowerbound|upperbound)\b/.test(line)) return null;
@@ -436,17 +434,15 @@ function waitForEngine(target, command, timeoutMs = 30000) {
 async function ensureEngine() {
   if (readyPromise) return readyPromise;
   readyPromise = (async () => {
-    // Construct robust absolute URL for the worker script and wasm file
     const workerUrl = new URL('./engine/stockfish-19-lite-single.js', window.location.href);
     const wasmUrl = new URL('./engine/stockfish-19-lite-single.wasm', window.location.href);
-    // Passing the wasm location in the hash fragment ensures locateFile/instantiateWasm finds it
     worker = new Worker(`${workerUrl.href}#${encodeURIComponent(wasmUrl.href)}`);
 
     let engineFailed = false;
     worker.onerror = (err) => {
       engineFailed = true;
       console.error('Stockfish Worker Error:', err);
-      status('فشل تحميل المحرك أو ملف WebAssembly. شغّل خادم التطوير عبر npm run dev ولا تفتح الملفات مباشرة بـ file://.', 'error');
+      status('فشل تحميل المحرك أو ملف WebAssembly. شغّل خادم التطوير عبر npm run dev.', 'error');
     };
 
     await waitForEngine(s => s.includes('uciok'), 'uci', 45000);
@@ -643,6 +639,7 @@ async function startAnalysis() {
   const text = byId('pgn-text').value.trim();
   if (!text) {
     status('أدخل نص PGN صحيحاً أولاً.', 'error');
+    openModal();
     return;
   }
 
@@ -651,6 +648,7 @@ async function startAnalysis() {
       loadGame(text);
     } catch (err) {
       status('PGN غير صحيح: ' + err.message, 'error');
+      openModal();
       return;
     }
   }
@@ -688,7 +686,7 @@ async function startAnalysis() {
 
     analyses = buildResult(evals);
     displayResults();
-    status(`اكتمل تحليل ${gameSnapshot.moves.length} نصف نقلة بنجاح عند عمق ${depth}. جميع العمليات تمت محلياً على جهازك.`, 'success');
+    status(`اكتمل تحليل ${gameSnapshot.moves.length} نصف نقلة بنجاح عند عمق ${depth}.`, 'success');
   } catch (err) {
     status(err.message || 'حدث خطأ أثناء التحليل.', 'error');
     console.error(err);
@@ -704,16 +702,70 @@ function cancelAnalysis() {
   status('تم إيقاف التحليل.', 'warning');
 }
 
-// Event Listeners
+// Modal handling
+const modal = byId('pgn-modal');
+function openModal() {
+  if (typeof modal.showModal === 'function') {
+    modal.showModal();
+  } else {
+    modal.setAttribute('open', '');
+  }
+}
+
+function closeModal() {
+  if (typeof modal.close === 'function') {
+    modal.close();
+  } else {
+    modal.removeAttribute('open');
+  }
+}
+
+byId('open-pgn-btn').addEventListener('click', openModal);
+byId('close-pgn-btn').addEventListener('click', closeModal);
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) closeModal();
+});
+
+// Tab Switcher Handling
+const tabMovesBtn = byId('tab-moves-btn');
+const tabReviewBtn = byId('tab-review-btn');
+const paneMoves = byId('pane-moves');
+const paneReview = byId('pane-review');
+
+function setTab(tab) {
+  if (tab === 'moves') {
+    tabMovesBtn.classList.add('active');
+    tabMovesBtn.setAttribute('aria-selected', 'true');
+    tabReviewBtn.classList.remove('active');
+    tabReviewBtn.setAttribute('aria-selected', 'false');
+    paneMoves.removeAttribute('hidden');
+    paneReview.setAttribute('hidden', '');
+    updateActiveMove();
+  } else {
+    tabReviewBtn.classList.add('active');
+    tabReviewBtn.setAttribute('aria-selected', 'true');
+    tabMovesBtn.classList.remove('active');
+    tabMovesBtn.setAttribute('aria-selected', 'false');
+    paneReview.removeAttribute('hidden');
+    paneMoves.setAttribute('hidden', '');
+  }
+}
+
+tabMovesBtn.addEventListener('click', () => setTab('moves'));
+tabReviewBtn.addEventListener('click', () => setTab('review'));
+
+// Demo Button
 byId('demo-btn').addEventListener('click', () => {
   byId('pgn-text').value = DEMO;
   try {
     loadGame(DEMO);
+    closeModal();
   } catch (err) {
     status(err.message, 'error');
   }
 });
 
+// Load Button
 byId('load-btn').addEventListener('click', () => {
   const text = byId('pgn-text').value.trim();
   if (!text) {
@@ -722,28 +774,39 @@ byId('load-btn').addEventListener('click', () => {
   }
   try {
     loadGame(text);
+    closeModal();
   } catch (err) {
     status('PGN غير صحيح: ' + err.message, 'error');
   }
 });
 
-byId('pgn-file').addEventListener('change', async e => {
+// File Inputs
+function handleFileInput(e) {
   const file = e.target.files?.[0];
   if (!file) return;
   if (file.size > 2 * 1024 * 1024) {
     status('الملف كبير جداً. الحد الأقصى 2MB.', 'error');
     return;
   }
-  const content = await file.text();
-  byId('pgn-text').value = content;
-  try {
-    loadGame(content);
-  } catch (err) {
-    status('PGN غير صحيح: ' + err.message, 'error');
-  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const content = reader.result;
+    byId('pgn-text').value = content;
+    try {
+      loadGame(content);
+      closeModal();
+    } catch (err) {
+      status('PGN غير صحيح: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
   e.target.value = '';
-});
+}
 
+byId('pgn-file').addEventListener('change', handleFileInput);
+byId('pgn-modal-file').addEventListener('change', handleFileInput);
+
+// Action buttons
 byId('analyze-btn').addEventListener('click', startAnalysis);
 byId('cancel-btn').addEventListener('click', cancelAnalysis);
 
@@ -780,6 +843,7 @@ byId('flip-btn').addEventListener('click', () => {
   renderBoard();
 });
 
+// Keyboard Navigation
 window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
   if (!game) return;
@@ -811,6 +875,6 @@ window.addEventListener('keydown', e => {
   }
 });
 
-// Initial startup: Load the demo game immediately
+// Startup initialization
 byId('pgn-text').value = DEMO;
 loadGame(DEMO);

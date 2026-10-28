@@ -3,90 +3,241 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#161a20" />
-  <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish داخل متصفحك. تقييم كل نقلة، الدقة، الأخطاء، ورسم التقييم." />
+  <meta name="theme-color" content="#111419" />
+  <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight — تقرير مباراتك المجاني</title>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="site-header">
-      <div class="logo-wrap" aria-label="Chess Insight">
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
         <div class="logo-mark" aria-hidden="true">♞</div>
-        <div><strong>CHESS<span class="logo-accent">INSIGHT</span></strong><span>استوديو تحليل مبارياتك</span></div>
+        <div class="logo-text">
+          <strong>CHESS<span class="logo-accent">INSIGHT</span></strong>
+          <span class="logo-sub">استوديو تحليل المباريات</span>
+        </div>
       </div>
-      <div class="header-meta"><span class="live-dot"></span><span>STOCKFISH 19</span><span class="meta-divider">/</span><span>مجاني بالكامل</span></div>
+
+      <div class="header-actions">
+        <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
+          <span class="btn-icon">📋</span> إدخال PGN
+        </button>
+        <label class="btn btn-secondary header-btn upload-label" for="pgn-file" title="رفع ملف PGN">
+          <span class="btn-icon">↥</span> رفع ملف
+        </label>
+        <input id="pgn-file" type="file" accept=".pgn,text/plain" hidden />
+        <div class="engine-badge">
+          <span class="live-dot"></span>
+          <span>STOCKFISH 19</span>
+        </div>
+      </div>
     </header>
 
-    <main>
-      <section class="hero">
-        <div class="eyebrow"><span class="eyebrow-line"></span>حلّل. افهم. تطوّر.</div>
-        <h1>لكل نقلة <em>حكاية.</em></h1>
-        <p>الصق مباراة PGN وشاهد متى تفوقت، وأين أخطأت، وما كانت أفضل نقلة. تقرير مصمّم ليكون مفهوماً من النظرة الأولى.</p>
-      </section>
-
-      <section class="editor panel" aria-label="إدخال المباراة">
-        <div class="editor-head">
-          <div><div class="kicker">ابدأ من هنا <span>01</span></div><h2>أدخل مباراتك</h2></div>
-          <label class="upload-btn" for="pgn-file"><span aria-hidden="true">↥</span> ارفع ملف PGN</label><input id="pgn-file" type="file" accept=".pgn,text/plain" hidden />
+    <!-- Main Workspace (Zero Scroll on Desktop) -->
+    <main class="workspace-grid">
+      <!-- Left (or Right in RTL): Board Column -->
+      <section class="board-column panel" aria-label="رقعة الشطرنج">
+        <!-- Player Black Bar -->
+        <div class="player-bar player-black">
+          <div class="player-avatar black">♟</div>
+          <div class="player-meta">
+            <strong id="black-name">الأسود</strong>
+            <small id="black-elo">BLACK</small>
+          </div>
+          <span id="black-mini-score" class="mini-score">—</span>
         </div>
-        <div class="editor-content">
-          <textarea id="pgn-text" dir="ltr" spellcheck="false" aria-label="نص PGN" placeholder='[White "Player 1"]&#10;[Black "Player 2"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
-          <div class="editor-side">
-            <div class="editor-tip"><span class="tip-icon" aria-hidden="true">✦</span><strong>انسخ PGN كما هو</strong><small>من Chess.com أو Lichess أو أي تطبيق شطرنج.</small></div>
-            <button id="load-btn" class="btn btn-primary" type="button">عرض المباراة <span aria-hidden="true">←</span></button>
-            <button id="demo-btn" class="btn btn-ghost" type="button">جرّب مثالاً جاهزاً</button>
+
+        <!-- Chessboard Container -->
+        <div class="board-wrapper">
+          <div id="board" class="chessboard" role="img" aria-label="رقعة الشطرنج"></div>
+        </div>
+
+        <!-- Player White Bar -->
+        <div class="player-bar player-white">
+          <div class="player-avatar white">♙</div>
+          <div class="player-meta">
+            <strong id="white-name">الأبيض</strong>
+            <small id="white-elo">WHITE</small>
+          </div>
+          <span id="white-mini-score" class="mini-score">—</span>
+        </div>
+
+        <!-- Board Controls -->
+        <div class="board-toolbar">
+          <div class="board-nav-buttons">
+            <button id="first-btn" class="icon-nav-btn" aria-label="أول نقلة" title="البداية (Home)">⏮</button>
+            <button id="prev-btn" class="icon-nav-btn" aria-label="النقلة السابقة" title="السابق (سهم يمين)">◀</button>
+            <span id="move-counter" class="move-counter">0 / 0</span>
+            <button id="next-btn" class="icon-nav-btn" aria-label="النقلة التالية" title="التالي (سهم يسار)">▶</button>
+            <button id="last-btn" class="icon-nav-btn" aria-label="آخر نقلة" title="النهاية (End)">⏭</button>
+          </div>
+          <button id="flip-btn" class="icon-nav-btn flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button>
+        </div>
+
+        <!-- Current Move Banner -->
+        <div id="move-description" class="move-status-banner">شاهد النقلة الحالية وتقييمها هنا</div>
+      </section>
+
+      <!-- Right Column: Analysis & Moves Sidebar -->
+      <aside class="sidebar-column panel" aria-label="لوحة التحليل والنقلات">
+        <!-- Accuracy Overview Header -->
+        <div class="accuracy-summary">
+          <div class="acc-box white-acc-box">
+            <div class="acc-box-top">
+              <span class="player-mini-avatar white">♙</span>
+              <span class="acc-box-name" id="report-white-name">الأبيض</span>
+            </div>
+            <div class="acc-box-score">
+              <span class="acc-num" id="white-accuracy">—<small>%</small></span>
+              <span class="acc-lbl">الدقة</span>
+            </div>
+            <div class="acc-bar-track"><div id="white-meter" class="acc-bar-fill"></div></div>
+            <div class="acc-sub" id="white-accuracy-sub">لم يُحلّل بعد</div>
+          </div>
+
+          <div class="acc-box black-acc-box">
+            <div class="acc-box-top">
+              <span class="player-mini-avatar black">♟</span>
+              <span class="acc-box-name" id="report-black-name">الأسود</span>
+            </div>
+            <div class="acc-box-score">
+              <span class="acc-num" id="black-accuracy">—<small>%</small></span>
+              <span class="acc-lbl">الدقة</span>
+            </div>
+            <div class="acc-bar-track"><div id="black-meter" class="acc-bar-fill"></div></div>
+            <div class="acc-sub" id="black-accuracy-sub">لم يُحلّل بعد</div>
           </div>
         </div>
-        <div class="input-hint" id="input-hint">يمكنك لصق PGN من Chess.com أو Lichess</div>
-      </section>
 
-      <section class="workspace">
-        <section class="analysis-panel panel" aria-label="تقرير تحليل المباراة">
-          <div class="section-heading report-heading"><div><span class="kicker">تقرير المباراة <span>02</span></span><h2>نظرة على أدائك <span class="heading-spark">✦</span></h2></div><div class="engine-tag"><span class="live-dot"></span> تحليل محلي آمن</div></div>
+        <!-- Compact Evaluation Chart -->
+        <div class="chart-section">
+          <div class="chart-header">
+            <h4>منحنى الأفضلية</h4>
+            <span class="chart-tip">انقر للانتقال</span>
+          </div>
+          <div id="chart-wrap" class="chart-wrap">
+            <div class="chart-empty"><span>↗</span> سيظهر المنحنى بعد التحليل</div>
+          </div>
+        </div>
 
-          <div class="coach-card">
-            <div class="coach-avatar" aria-hidden="true"><div>♟</div><span>✦</span></div>
-            <div class="coach-bubble" id="coach-bubble">مرحباً! أدخل مباراتك، وسأساعدك على اكتشاف النقلات الرائعة والأخطاء التي تستحق المراجعة.</div>
+        <!-- Tabs Navigation (Chess.com style) -->
+        <div class="sidebar-tabs" role="tablist">
+          <button id="tab-moves-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">
+            <span>♟️</span> سجل النقلات
+          </button>
+          <button id="tab-review-btn" class="tab-btn" type="button" role="tab" aria-selected="false">
+            <span>📊</span> تقرير الأداء
+          </button>
+        </div>
+
+        <!-- Tab Content Area (Scrollable Internally) -->
+        <div class="tab-content-container">
+          <!-- Moves Tab Pane -->
+          <div id="pane-moves" class="tab-pane active" role="tabpanel">
+            <div class="moves-header-bar">
+              <span class="col-num">#</span>
+              <span class="col-white">الأبيض</span>
+              <span class="col-black">الأسود</span>
+            </div>
+            <div id="moves-list" class="chesscom-moves-list">
+              <div class="empty-moves">لنبدأ بإدخال مباراتك.</div>
+            </div>
           </div>
 
-          <div class="engine-controls"><div class="engine-depth"><label for="depth-select">قوة التحليل</label><select id="depth-select" aria-label="عمق التحليل"><option value="8">سريع · 8</option><option value="12" selected>متوازن · 12</option><option value="16">متعمق · 16</option></select></div><button class="btn btn-primary analyze-btn" id="analyze-btn" type="button">⚡ ابدأ التحليل المجاني</button><button class="btn btn-danger" id="cancel-btn" type="button" hidden>إيقاف</button></div>
-          <div class="progress-wrap" id="progress-wrap" hidden><div class="progress-label"><span id="progress-text">جارٍ التحليل…</span><span id="progress-value">0%</span></div><div class="progress-track"><div id="progress-bar"></div></div></div>
-          <div id="status" class="status" role="status" aria-live="polite">مباراة تجريبية جاهزة — اعرضها ثم اضغط «ابدأ التحليل».</div>
+          <!-- Review Tab Pane -->
+          <div id="pane-review" class="tab-pane" role="tabpanel" hidden>
+            <!-- Coach Card -->
+            <div class="coach-card">
+              <div class="coach-avatar" aria-hidden="true">
+                <div>♟</div><span>✦</span>
+              </div>
+              <div class="coach-bubble" id="coach-bubble">
+                مرحباً! اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء والهفوات بدقة.
+              </div>
+            </div>
 
-          <div class="chart-title"><h3>من كان الأفضل؟</h3><span>تغيّر الأفضلية خلال المباراة</span></div>
-          <div class="chart-wrap" id="chart-wrap"><div class="chart-empty"><span>↗</span> سيظهر منحنى المباراة هنا بعد التحليل</div></div>
-          <div class="chart-legend"><span><i class="legend-white"></i> أفضلية الأبيض</span><span><i class="legend-black"></i> أفضلية الأسود</span><span class="chart-legend-hint">اضغط على المنحنى للانتقال إلى النقلة</span></div>
+            <!-- Classifications Stats Table -->
+            <div class="stats-section">
+              <div class="stat-head">
+                <span>التصنيف</span>
+                <span>الأبيض</span>
+                <span>الأسود</span>
+              </div>
+              <div class="stats" id="stats"></div>
+            </div>
+            <div class="method-note">
+              <span aria-hidden="true">ⓘ</span> تُحسب الدقة بخوارزمية احتمالية مستوحاة من Lichess.
+            </div>
+          </div>
+        </div>
 
-          <div class="comparison-heading"><h3>مقارنة اللاعبين</h3><span>الدقة تقديرية ولا تطابق بالضرورة Chess.com</span></div>
-          <div class="accuracy-grid">
-            <article class="accuracy-card white-card"><div class="accuracy-card-top"><span class="player-avatar white">♙</span><div><strong id="report-white-name">الأبيض</strong><small>اللاعب الأبيض</small></div></div><div class="accuracy-score-line"><span class="accuracy-value" id="white-accuracy">—<small>%</small></span><span class="score-caption">الدقة</span></div><div class="accuracy-meter"><span id="white-meter"></span></div><div class="accuracy-sub" id="white-accuracy-sub">لم يُحلّل بعد</div></article>
-            <article class="accuracy-card black-card"><div class="accuracy-card-top"><span class="player-avatar black">♟</span><div><strong id="report-black-name">الأسود</strong><small>اللاعب الأسود</small></div></div><div class="accuracy-score-line"><span class="accuracy-value" id="black-accuracy">—<small>%</small></span><span class="score-caption">الدقة</span></div><div class="accuracy-meter"><span id="black-meter"></span></div><div class="accuracy-sub" id="black-accuracy-sub">لم يُحلّل بعد</div></article>
+        <!-- Bottom Controls: Engine depth & Analyze button -->
+        <div class="sidebar-footer">
+          <div class="engine-controls">
+            <div class="engine-depth">
+              <label for="depth-select">العمق</label>
+              <select id="depth-select" aria-label="عمق التحليل">
+                <option value="8">سريع · 8</option>
+                <option value="12" selected>متوازن · 12</option>
+                <option value="16">متعمق · 16</option>
+              </select>
+            </div>
+            <button class="btn btn-primary analyze-btn" id="analyze-btn" type="button">
+              ⚡ ابدأ التحليل المجاني
+            </button>
+            <button class="btn btn-danger" id="cancel-btn" type="button" hidden>إيقاف</button>
           </div>
 
-          <div class="stats-heading"><div><h3>تصنيف النقلات</h3><p>كل لون يدلّ على جودة مختلفة</p></div><span class="mini-legend">الأبيض &nbsp; / &nbsp; الأسود</span></div>
-          <div class="stat-head"><span>التصنيف</span><span>الأبيض</span><span>الأسود</span></div>
-          <div class="stats" id="stats"></div>
-          <div class="method-note"><span aria-hidden="true">ⓘ</span> تُحسب الدقة بخوارزمية تقديرية مستوحاة من Lichess. الفئات «عبقرية»، «رائعة»، و«افتتاحية» تتطلب قواعد إضافية، لذا نظهرها بشرطة بدل اختلاق نتائج.</div>
-        </section>
+          <!-- Progress Bar -->
+          <div class="progress-wrap" id="progress-wrap" hidden>
+            <div class="progress-label">
+              <span id="progress-text">جارٍ التحليل…</span>
+              <span id="progress-value">0%</span>
+            </div>
+            <div class="progress-track"><div id="progress-bar"></div></div>
+          </div>
 
-        <section class="board-panel panel" aria-label="رقعة المباراة">
-          <div class="section-heading"><div><span class="kicker">تتبّع النقلات <span>03</span></span><h2>رقعة الشطرنج</h2></div><button class="icon-btn" id="flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button></div>
-          <div class="player-bar player-black"><span class="player-avatar black">♟</span><div class="player-info"><strong id="black-name">الأسود</strong><small id="black-elo">—</small></div><span id="black-mini-score" class="mini-score">—</span></div>
-          <div class="board-frame"><div id="board" class="chessboard" role="img" aria-label="وضعية الشطرنج الحالية"></div></div>
-          <div class="player-bar player-white"><span class="player-avatar white">♙</span><div class="player-info"><strong id="white-name">الأبيض</strong><small id="white-elo">—</small></div><span id="white-mini-score" class="mini-score">—</span></div>
-          <div class="board-controls"><button id="first-btn" aria-label="أول نقلة" title="البداية">⏮</button><button id="prev-btn" aria-label="النقلة السابقة" title="السابق">◀</button><span id="move-counter">0 / 0</span><button id="next-btn" aria-label="النقلة التالية" title="التالي">▶</button><button id="last-btn" aria-label="آخر نقلة" title="النهاية">⏭</button></div>
-          <div id="move-description" class="move-description">شاهد النقلة الحالية وتقييمها هنا</div>
-          <div class="board-note"><span>↔</span> تصفّح النقلات بالأسهم أو انقر على النقلة في السجل.</div>
-        </section>
-      </section>
-
-      <section class="moves-panel panel">
-        <div class="section-heading"><div><span class="kicker">كل نقلة مهمة <span>04</span></span><h2>سجل النقلات</h2></div><span id="move-list-label" class="muted-label">اختر نقلة لعرضها</span></div>
-        <div id="moves-list" class="moves-list"><div class="empty-moves">لنبدأ بإدخال مباراتك.</div></div>
-      </section>
-      <footer><span>CHESS<span class="logo-accent">INSIGHT</span> <b>© 2026</b></span><span>محرك Stockfish 19 · يعمل داخل المتصفح · لا تسجيل ولا اشتراك</span></footer>
+          <!-- Status Message -->
+          <div id="status" class="status-msg" role="status" aria-live="polite">
+            مباراة تجريبية جاهزة — اضغط «ابدأ التحليل».
+          </div>
+        </div>
+      </aside>
     </main>
   </div>
+
+  <!-- PGN Input Modal Dialog (Keeps workspace clean and scroll-free) -->
+  <dialog id="pgn-modal" class="pgn-dialog">
+    <div class="pgn-modal-content panel">
+      <div class="pgn-modal-head">
+        <div class="modal-title-wrap">
+          <span class="kicker">إدخال المباراة</span>
+          <h3>الصق نص PGN أو ارفع ملفاً</h3>
+        </div>
+        <button id="close-pgn-btn" class="close-modal-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="pgn-modal-body">
+        <textarea id="pgn-text" dir="ltr" spellcheck="false" aria-label="نص PGN" placeholder='[White "Player 1"]&#10;[Black "Player 2"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
+        <div id="input-hint" class="modal-input-hint">يمكنك نسخ مباراة من Chess.com أو Lichess ولصقها هنا.</div>
+      </div>
+
+      <div class="pgn-modal-footer">
+        <button id="demo-btn" class="btn btn-ghost" type="button">جرّب مثالاً جاهزاً</button>
+        <div class="modal-main-actions">
+          <label class="btn btn-secondary upload-label" for="pgn-modal-file">
+            <span>↥</span> رفع ملف PGN
+          </label>
+          <input id="pgn-modal-file" type="file" accept=".pgn,text/plain" hidden />
+          <button id="load-btn" class="btn btn-primary" type="button">
+            تحميل وعرض المباراة ←
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
