@@ -524,7 +524,7 @@ function renderChart() {
   const points = values.map((value, i) => `${x(i).toFixed(2)},${y(value).toFixed(2)}`);
   const boundary = points.map((point, i) => `${i ? 'L' : 'M'}${point}`).join(' ');
   // White's share fills down to the bottom, with Black's share above it.
-  const area = `${boundary} L${width},${height} L0,${height} L0,${y(values[0]).toFixed(2)}Z`;
+  const area = `${boundary} L${width},${y(values.at(-1)).toFixed(2)} L${width},${height} L0,${height} L0,${y(values[0]).toFixed(2)}Z`;
   const step = Math.max(1, Math.ceil(analyses.moves.length / 75));
   const markers = analyses.moves.map((move, i) => {
     const important = ['blunder', 'mistake', 'miss', 'brilliant', 'great'].includes(move.category);
