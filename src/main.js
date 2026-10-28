@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js';
+import { getPieceSvg } from './pieces.js';
 import './style.css';
 
 const START_FEN = new Chess().fen();
@@ -32,11 +33,6 @@ const DISPLAY_LABELS = [
   ['blunder', 'هفوة', '×', '#f06a69', true],
 ];
 
-const SYMBOLS = {
-  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟︎' }
-};
-
 const byId = id => document.getElementById(id);
 let game = null;
 let currentPgn = '';
@@ -47,6 +43,7 @@ let readyPromise = null;
 let runId = 0;
 let abortRequested = false;
 let analyses = null;
+let currentHint = null; // { fen, uci, from, to, san, cpText }
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const formatNum = n => Number.isFinite(n) ? n.toFixed(1) : '—';
@@ -90,6 +87,7 @@ function computeGames(pgn) {
 
 function resetResults() {
   analyses = null;
+  currentHint = null;
   for (const color of ['white', 'black']) {
     byId(`${color}-accuracy`).innerHTML = '—<small>%</small>';
     byId(`${color}-mini-score`).textContent = '—';
@@ -98,6 +96,11 @@ function resetResults() {
   }
   byId('chart-wrap').innerHTML = '<div class="chart-empty"><span>↗</span> سيظهر المنحنى بعد التحليل</div>';
   byId('coach-bubble').textContent = 'المباراة جاهزة للعرض. اضغط على «ابدأ التحليل» وسنستعرض دقة النقلات وما يمكن تحسينه.';
+  const hintBanner = byId('hint-banner');
+  if (hintBanner) {
+    hintBanner.hidden = true;
+    hintBanner.textContent = '';
+  }
   renderStats();
 }
 
@@ -152,11 +155,18 @@ function renderBoard() {
   view.forEach((entry, i) => {
     const sq = document.createElement('div');
     sq.className = `square ${(entry.r + entry.c) % 2 === 0 ? 'light' : 'dark'}`;
+
     if (last && (last.from === entry.square || last.to === entry.square)) {
       sq.classList.add('last-move');
     }
     if (entry.isCheckedKing) {
       sq.classList.add('check');
+    }
+
+    // Best move hint highlights
+    if (currentHint && currentHint.fen === fen) {
+      if (entry.square === currentHint.from) sq.classList.add('hint-from');
+      if (entry.square === currentHint.to) sq.classList.add('hint-to');
     }
 
     const file = flipped ? 'hgfedcba'[i % 8] : 'abcdefgh'[i % 8];
@@ -174,11 +184,16 @@ function renderBoard() {
       axis.textContent = file;
       sq.appendChild(axis);
     }
+
+    // Render Chess.com style vector piece SVG (Large & Crisp)
     if (entry.piece) {
-      const p = document.createElement('span');
-      p.className = `piece ${entry.piece.color === 'w' ? 'white-piece' : 'black-piece'}`;
-      p.textContent = SYMBOLS[entry.piece.color][entry.piece.type];
-      sq.appendChild(p);
+      const svgCode = getPieceSvg(entry.piece.color, entry.piece.type);
+      if (svgCode) {
+        const pieceWrap = document.createElement('div');
+        pieceWrap.className = 'piece-svg-wrap';
+        pieceWrap.innerHTML = svgCode;
+        sq.appendChild(pieceWrap);
+      }
     }
     grid.appendChild(sq);
   });
@@ -201,6 +216,19 @@ function renderBoard() {
     }
   }
   byId('move-description').textContent = desc;
+
+  // Update hint banner
+  const hintBanner = byId('hint-banner');
+  if (hintBanner) {
+    if (currentHint && currentHint.fen === fen) {
+      hintBanner.hidden = false;
+      hintBanner.innerHTML = currentHint.text;
+    } else {
+      hintBanner.hidden = true;
+      hintBanner.textContent = '';
+    }
+  }
+
   byId('first-btn').disabled = position === 0;
   byId('prev-btn').disabled = position === 0;
   byId('next-btn').disabled = !game || position === game.moves.length;
@@ -263,7 +291,7 @@ function renderMoves() {
   updateActiveMove();
 }
 
-// STRICT LOCAL SCROLL - NEVER SCROLLS THE WINDOW!
+// Internal-Only Scroll for Move List: NEVER Scrolls the Outer Window
 function updateActiveMove() {
   const root = byId('moves-list');
   if (!root) return;
@@ -274,15 +302,14 @@ function updateActiveMove() {
     const isActive = position === idx + 1;
     btn.classList.toggle('active', isActive);
     if (isActive && container) {
-      // Direct container scroll calculation without touching window scroll!
       const btnTop = btn.offsetTop;
       const btnBottom = btnTop + btn.offsetHeight;
       const cTop = container.scrollTop;
       const cHeight = container.clientHeight;
-      if (btnTop < cTop + 8) {
-        container.scrollTop = Math.max(0, btnTop - 8);
-      } else if (btnBottom > cTop + cHeight - 8) {
-        container.scrollTop = btnBottom - cHeight + 8;
+      if (btnTop < cTop + 10) {
+        container.scrollTop = Math.max(0, btnTop - 10);
+      } else if (btnBottom > cTop + cHeight - 10) {
+        container.scrollTop = btnBottom - cHeight + 10;
       }
     }
   });
@@ -323,20 +350,20 @@ function renderChart() {
   const wrap = byId('chart-wrap');
   if (!analyses?.evals) return;
   const values = analyses.evals.map(e => e.cpWhite);
-  const width = 800, height = 52, pad = 6, mid = 26, usable = width - pad * 2;
+  const width = 800, height = 60, pad = 6, mid = 30, usable = width - pad * 2;
   const x = i => pad + usable * i / Math.max(1, values.length - 1);
-  const y = cp => mid - 20 * Math.tanh(cp / 320);
+  const y = cp => mid - 24 * Math.tanh(cp / 320);
   const points = values.map((v, i) => [x(i), y(v)]);
   const path = points.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' ');
   const area = `${path}L ${x(values.length - 1)},${mid} L ${x(0)},${mid}Z`;
   const cx = x(position), cy = y(values[position]);
 
-  const maxDots = 50;
+  const maxDots = 55;
   const step = Math.max(1, Math.ceil(analyses.moves.length / maxDots));
   const markers = analyses.moves.map((m, i) => {
     if (i % step && i !== position - 1) return '';
     const meta = LABELS.find(l => l[0] === m.category);
-    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 4.5 : 2.5}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.8"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
+    return `<circle cx="${x(i + 1)}" cy="${y(values[i + 1])}" r="${position === i + 1 ? 5 : 2.6}" fill="${meta?.[3] || '#9daaa0'}" stroke="#f3f4f2" stroke-width="0.8"><title>${i + 1} · ${m.san}: ${meta?.[1] || ''}</title></circle>`;
   }).join('');
 
   wrap.innerHTML = `<svg class="eval-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="منحنى تقييم المباراة، انقر على نقطة للانتقال إليها">
@@ -351,7 +378,7 @@ function renderChart() {
     <path d="${path}" fill="none" stroke="#46544d" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
     ${markers}
     <line x1="${cx}" y1="0" x2="${cx}" y2="${height}" stroke="#397153" stroke-width="1.6" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
-    <circle cx="${cx}" cy="${cy}" r="4" fill="#437c5a" stroke="#fff" stroke-width="1.5"/>
+    <circle cx="${cx}" cy="${cy}" r="4.5" fill="#437c5a" stroke="#fff" stroke-width="1.5"/>
   </svg>`;
 
   const svg = wrap.querySelector('svg');
@@ -502,7 +529,7 @@ function analyzePosition(fen, depth) {
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error('انتهى وقت التحليل لهذه الوضعية. جرّب عمقاً أقل.'));
+      reject(new Error('انتهى وقت التحليل لهذه الوضعية.'));
     }, 60000);
 
     const cleanup = () => {
@@ -537,6 +564,55 @@ function analyzePosition(fen, depth) {
     worker.postMessage(`position fen ${fen}`);
     worker.postMessage(`go depth ${depth}`);
   });
+}
+
+// Interactive Best Move Calculation for Current Position
+async function showBestMoveHint() {
+  if (!game) return;
+  const fen = game.fens[position];
+  const board = new Chess(fen);
+  if (board.isGameOver()) {
+    status('المباراة منتهية في هذه الوضعية.', 'info');
+    return;
+  }
+
+  const turnName = board.turn() === 'w' ? 'الأبيض' : 'الأسود';
+  const hintBanner = byId('hint-banner');
+  if (hintBanner) {
+    hintBanner.hidden = false;
+    hintBanner.textContent = `💡 جارٍ حساب أفضل نقلة لـ ${turnName} عبر Stockfish 19…`;
+  }
+
+  try {
+    await ensureEngine();
+    const depth = Number(byId('depth-select').value) || 12;
+    const res = await analyzePosition(fen, depth);
+
+    if (res.best && res.best !== '(none)') {
+      const from = res.best.slice(0, 2);
+      const to = res.best.slice(2, 4);
+      const san = res.bestSan || res.best;
+      const evalText = res.cpWhite !== null
+        ? (res.cpWhite > 0 ? `+${(res.cpWhite / 100).toFixed(1)}` : `${(res.cpWhite / 100).toFixed(1)}`)
+        : '';
+
+      currentHint = {
+        fen,
+        uci: res.best,
+        from,
+        to,
+        san,
+        text: `💡 أفضل نقلة لـ ${turnName}: <strong>${san}</strong> (${from} → ${to}) ${evalText ? `· التقييم: ${evalText}` : ''}`
+      };
+
+      renderBoard();
+      status(`أفضل نقلة لـ ${turnName}: ${san} (${from} إلى ${to})`, 'success');
+    } else {
+      if (hintBanner) hintBanner.textContent = 'لا توجد نقلات قانونية متاحة.';
+    }
+  } catch (err) {
+    if (hintBanner) hintBanner.textContent = 'تعذر حساب أفضل نقلة: ' + err.message;
+  }
 }
 
 function winChance(cp) {
@@ -822,9 +898,11 @@ byId('pgn-modal-file').addEventListener('change', handleFileInput);
 // Action buttons
 byId('analyze-btn').addEventListener('click', startAnalysis);
 byId('cancel-btn').addEventListener('click', cancelAnalysis);
+byId('hint-btn').addEventListener('click', showBestMoveHint);
 
 byId('first-btn').addEventListener('click', () => {
   position = 0;
+  currentHint = null;
   renderBoard();
   updateActiveMove();
   renderChart();
@@ -832,6 +910,7 @@ byId('first-btn').addEventListener('click', () => {
 
 byId('prev-btn').addEventListener('click', () => {
   position = Math.max(0, position - 1);
+  currentHint = null;
   renderBoard();
   updateActiveMove();
   renderChart();
@@ -839,6 +918,7 @@ byId('prev-btn').addEventListener('click', () => {
 
 byId('next-btn').addEventListener('click', () => {
   position = Math.min(game?.moves.length || 0, position + 1);
+  currentHint = null;
   renderBoard();
   updateActiveMove();
   renderChart();
@@ -846,6 +926,7 @@ byId('next-btn').addEventListener('click', () => {
 
 byId('last-btn').addEventListener('click', () => {
   position = game?.moves.length || 0;
+  currentHint = null;
   renderBoard();
   updateActiveMove();
   renderChart();
@@ -856,12 +937,12 @@ byId('flip-btn').addEventListener('click', () => {
   renderBoard();
 });
 
-// STRICT KEYBOARD NAVIGATION - PREVENT DEFAULT WINDOW SCROLL!
+// Keyboard Navigation - Intercepts Arrow Keys to Prevent Window Scroll
 window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
   if (!game) return;
 
-  const navKeys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', 'PageDown', 'PageUp', ' '];
+  const navKeys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', ' '];
   if (navKeys.includes(e.key)) {
     e.preventDefault();
     e.stopPropagation();
@@ -869,21 +950,25 @@ window.addEventListener('keydown', e => {
 
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
     position = Math.min(game.moves.length, position + 1);
+    currentHint = null;
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
     position = Math.max(0, position - 1);
+    currentHint = null;
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'Home') {
     position = 0;
+    currentHint = null;
     renderBoard();
     updateActiveMove();
     renderChart();
   } else if (e.key === 'End') {
     position = game.moves.length;
+    currentHint = null;
     renderBoard();
     updateActiveMove();
     renderChart();

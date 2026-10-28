@@ -2,19 +2,20 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#111419" />
   <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight — تقرير مباراتك المجاني</title>
 </head>
 <body>
   <div class="app-layout">
-    <!-- Slim Header (44px) -->
+    <!-- Header -->
     <header class="app-header">
       <div class="header-brand">
         <div class="logo-mark" aria-hidden="true">♞</div>
         <div class="logo-text">
           <strong>CHESS<span class="logo-accent">INSIGHT</span></strong>
+          <span class="logo-sub">استوديو تحليل المباريات</span>
         </div>
       </div>
 
@@ -33,9 +34,9 @@
       </div>
     </header>
 
-    <!-- Main Workspace (Zero Window Scroll) -->
+    <!-- Main Workspace (Desktop Side-by-Side) -->
     <main class="workspace-grid">
-      <!-- Left (or Right in RTL): Board Column -->
+      <!-- Board Column -->
       <section class="board-column panel" aria-label="رقعة الشطرنج">
         <!-- Player Black Bar -->
         <div class="player-bar player-black">
@@ -72,15 +73,19 @@
             <button id="last-btn" class="icon-nav-btn" aria-label="آخر نقلة" title="النهاية (End)">⏭</button>
           </div>
           <button id="flip-btn" class="icon-nav-btn flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button>
+          <button id="hint-btn" class="btn btn-hint" type="button" title="احسب أو أظهر أفضل نقلة لهذه الوضعية">
+            <span class="hint-icon">💡</span> أفضل نقلة
+          </button>
         </div>
 
-        <!-- Current Move Banner -->
+        <!-- Current Move Banner & Best Move Highlight -->
         <div id="move-description" class="move-status-banner">بداية المباراة</div>
+        <div id="hint-banner" class="hint-status-banner" hidden></div>
       </section>
 
-      <!-- Right Column: Sidebar (Moves List + Review) -->
+      <!-- Sidebar Column (Moves List + Review) -->
       <aside class="sidebar-column panel" aria-label="لوحة التحليل والنقلات">
-        <!-- Accuracy Cards (Compact Header) -->
+        <!-- Accuracy Cards -->
         <div class="accuracy-summary">
           <div class="acc-box white-acc-box">
             <div class="acc-box-top">
@@ -109,7 +114,7 @@
           </div>
         </div>
 
-        <!-- Compact Evaluation Chart -->
+        <!-- Evaluation Chart -->
         <div class="chart-section">
           <div class="chart-header">
             <h4>منحنى الأفضلية</h4>
@@ -130,9 +135,9 @@
           </button>
         </div>
 
-        <!-- Tab Content Area (Scrolls Internally ONLY) -->
+        <!-- Tab Content Area -->
         <div class="tab-content-container">
-          <!-- Moves Tab Pane (Chess.com Table) -->
+          <!-- Moves Tab Pane (Chess.com Style Table) -->
           <div id="pane-moves" class="tab-pane active" role="tabpanel">
             <div class="moves-header-bar">
               <span class="col-num">#</span>
@@ -146,7 +151,6 @@
 
           <!-- Review Tab Pane (Coach & Stats) -->
           <div id="pane-review" class="tab-pane" role="tabpanel" hidden>
-            <!-- Coach Card -->
             <div class="coach-card">
               <div class="coach-avatar" aria-hidden="true">
                 <div>♟</div><span>✦</span>
@@ -156,7 +160,6 @@
               </div>
             </div>
 
-            <!-- Classifications Stats Table -->
             <div class="stats-section">
               <div class="stat-head">
                 <span>التصنيف</span>

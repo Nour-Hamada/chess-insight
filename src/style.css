@@ -15,6 +15,7 @@
   --text-dim: #5c686a;
   --danger: #eb676b;
   --warning: #f2c84c;
+  --gold: #f5cf6d;
   --font-arabic: 'Cairo', system-ui, sans-serif;
   --font-latin: 'DM Sans', sans-serif;
 }
@@ -24,19 +25,12 @@
 }
 
 /* =========================================================
-   STRICT ZERO-SCROLL GLOBAL LOCK
+   PAGE BASE (Natural scrolling allowed, but locked on arrow keys)
    ========================================================= */
 html, body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  height: 100dvh;
-  position: fixed;
-  inset: 0;
-  overflow: hidden !important;
-  overscroll-behavior: none !important;
-  touch-action: manipulation;
+  min-height: 100vh;
   font-family: var(--font-arabic);
   background: radial-gradient(ellipse 720px 500px at 88% -160px, rgba(42, 71, 50, 0.28), transparent),
               radial-gradient(ellipse 700px 420px at -20% 75%, rgba(38, 50, 66, 0.18), transparent),
@@ -67,60 +61,61 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: none !important;
 }
 
-/* Fullscreen App Container */
+/* App Container */
 .app-layout {
-  height: 100%;
-  height: 100dvh;
   width: 100%;
-  max-width: 1400px;
+  max-width: 1380px;
   margin: 0 auto;
-  padding: 6px 12px 6px;
+  padding: 8px 14px 16px;
   display: flex;
   flex-direction: column;
-  overflow: hidden !important;
 }
 
-/* Ultra-Slim Header (40px) */
+/* Header */
 .app-header {
-  height: 40px;
-  min-height: 40px;
-  max-height: 40px;
-  flex: none;
+  height: 48px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-light);
-  padding-bottom: 4px;
-  margin-bottom: 6px;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .logo-mark {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   background: linear-gradient(145deg, #d4f5c2, #9ed4a0);
   color: #172c20;
-  border-radius: 8px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
-  font: normal 22px Georgia, serif;
+  font: normal 24px Georgia, serif;
   box-shadow: 0 0 16px rgba(145, 220, 156, 0.15);
 }
 
 .logo-text strong {
   display: block;
-  font: 900 16px var(--font-latin);
+  font: 900 17px var(--font-latin);
   letter-spacing: -0.4px;
   line-height: 1;
 }
 
 .logo-accent {
   color: var(--accent-green);
+}
+
+.logo-sub {
+  display: block;
+  font-size: 9.5px;
+  color: var(--text-muted);
 }
 
 .header-actions {
@@ -133,12 +128,12 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 11px;
   border: 1px solid var(--border-light);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 16px;
   color: #bdc8c7;
-  font: 700 9px var(--font-latin);
+  font: 700 9.5px var(--font-latin);
 }
 
 .live-dot {
@@ -153,20 +148,20 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .panel {
   background: var(--bg-panel);
   border: 1px solid var(--border-light);
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .btn {
-  border-radius: 7px;
+  border-radius: 8px;
   border: 1px solid transparent;
-  padding: 5px 12px;
+  padding: 6px 13px;
   font-size: 11px;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
   transition: all 0.14s ease;
   white-space: nowrap;
 }
@@ -206,10 +201,22 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   color: #fff;
 }
 
+.btn-hint {
+  background: rgba(245, 207, 109, 0.14);
+  border-color: rgba(245, 207, 109, 0.35);
+  color: #f7d788;
+  font-weight: 800;
+}
+
+.btn-hint:hover:not(:disabled) {
+  background: rgba(245, 207, 109, 0.24);
+  border-color: rgba(245, 207, 109, 0.55);
+}
+
 .header-btn {
-  height: 30px;
-  padding: 0 11px;
-  font-size: 10.5px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 11px;
 }
 
 .upload-label {
@@ -217,48 +224,40 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 /* =========================================================
-   MAIN WORKSPACE GRID (Fixed Inside Viewport)
+   MAIN WORKSPACE GRID (Side by Side)
    ========================================================= */
 .workspace-grid {
-  flex: 1;
-  min-height: 0;
-  height: calc(100% - 46px);
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 370px;
-  gap: 12px;
-  overflow: hidden !important;
+  grid-template-columns: minmax(360px, 1fr) 390px;
+  gap: 14px;
+  align-items: start;
 }
 
 /* =========================================================
-   BOARD COLUMN (Flex Proportional Sizing)
+   BOARD COLUMN
    ========================================================= */
 .board-column {
-  height: 100%;
-  max-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 8px 12px;
-  overflow: hidden !important;
-  justify-content: space-between;
+  padding: 12px 16px;
 }
 
 .player-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 30px;
-  min-height: 30px;
-  flex: none;
+  gap: 10px;
+  height: 38px;
+  min-height: 38px;
 }
 
 .player-avatar {
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   display: grid;
   place-items: center;
   flex: none;
-  font: normal 18px Georgia, serif;
+  font: normal 20px Georgia, serif;
 }
 
 .player-avatar.white {
@@ -278,7 +277,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .player-meta strong {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -287,47 +286,45 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .player-meta small {
   display: block;
-  font: 700 8.5px var(--font-latin);
+  font: 700 9px var(--font-latin);
   color: var(--text-muted);
 }
 
 .mini-score {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  padding: 3px 7px;
-  border-radius: 5px;
-  font: 800 11px var(--font-latin);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font: 800 12px var(--font-latin);
   color: var(--accent-green);
 }
 
-/* Chessboard Area - Scales to Fit Remaining Space */
+/* Chessboard Area - Chess.com Proportions */
 .board-wrapper {
-  flex: 1;
-  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
-  margin: 2px 0;
+  margin: 6px 0;
 }
 
 .chessboard {
-  height: 100%;
-  max-height: 100%;
+  width: 100%;
+  max-width: 580px;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   grid-template-rows: repeat(8, minmax(0, 1fr));
   direction: ltr;
-  border-radius: 7px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
 .square {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-height: 0;
   min-width: 0;
   user-select: none;
@@ -350,29 +347,45 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .square.check {
-  background: radial-gradient(circle, rgba(235, 103, 107, 0.8) 0%, rgba(235, 103, 107, 0.25) 60%, transparent 75%);
+  background: radial-gradient(circle, rgba(235, 103, 107, 0.85) 0%, rgba(235, 103, 107, 0.3) 60%, transparent 75%);
 }
 
-.piece {
+/* Best move hint highlights */
+.square.hint-from {
+  background: radial-gradient(circle, rgba(245, 207, 109, 0.85) 0%, rgba(245, 207, 109, 0.35) 70%) !important;
+}
+
+.square.hint-to {
+  background: radial-gradient(circle, rgba(78, 190, 240, 0.85) 0%, rgba(78, 190, 240, 0.35) 70%) !important;
+}
+
+/* =========================================================
+   CHESS.COM STYLE VECTOR PIECES (LARGE & CRISP)
+   ========================================================= */
+.piece-svg-wrap {
+  width: 88%;
+  height: 88%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
+  transition: transform 0.12s ease;
+}
+
+.piece-svg-wrap svg {
+  width: 100%;
+  height: 100%;
   display: block;
-  z-index: 1;
-  position: relative;
-  font: normal clamp(18px, 4.2vh, 44px)/1 'DejaVu Sans', 'Segoe UI Symbol', serif;
 }
 
-.white-piece {
-  color: #fffdf3;
-  text-shadow: 0 2px 0 #3d5143, 1px 0 0 #596d59, -1px 0 0 #586a59, 0 0 3px #1c261f;
-}
-
-.black-piece {
-  color: #222b27;
-  text-shadow: 0 1px 1px #dbe2d6, 1px 0 0 #53635a;
+.square:hover .piece-svg-wrap {
+  transform: scale(1.04);
 }
 
 .rank-label, .file-label {
   position: absolute;
-  font: 800 8.5px var(--font-latin);
+  font: 800 9px var(--font-latin);
   color: #5a7961;
   z-index: 2;
   pointer-events: none;
@@ -397,31 +410,29 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 7px;
-  padding: 3px 8px;
-  height: 32px;
-  min-height: 32px;
-  flex: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-top: 4px;
 }
 
 .board-nav-buttons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   direction: ltr;
 }
 
 .icon-nav-btn {
-  width: 28px;
-  height: 26px;
+  width: 32px;
+  height: 28px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   color: #c4ddd0;
-  font-size: 13px;
+  font-size: 14px;
   display: grid;
   place-items: center;
   transition: background 0.12s ease;
@@ -432,44 +443,55 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .move-counter {
-  font: 800 10.5px var(--font-latin);
+  font: 800 11px var(--font-latin);
   color: #c5d2d0;
-  min-width: 55px;
+  min-width: 60px;
   text-align: center;
   direction: ltr;
 }
 
 .flip-btn {
-  font-size: 16px;
+  font-size: 17px;
 }
 
 .move-status-banner {
-  height: 26px;
-  min-height: 26px;
-  flex: none;
+  min-height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #cde0d2;
   text-align: center;
-  padding: 0 6px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 4px 8px;
+}
+
+.hint-status-banner {
+  background: rgba(245, 207, 109, 0.12);
+  border: 1px solid rgba(245, 207, 109, 0.35);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f7d788;
+  text-align: center;
+  margin-top: 4px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* =========================================================
    SIDEBAR COLUMN (Chess.com Moves List + Review)
    ========================================================= */
 .sidebar-column {
-  height: 100%;
-  max-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 10px;
-  overflow: hidden !important;
+  padding: 12px;
+  min-height: 520px;
 }
 
 /* Compact Accuracy Cards */
@@ -477,15 +499,14 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-  margin-bottom: 6px;
-  flex: none;
+  margin-bottom: 8px;
 }
 
 .acc-box {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: 9px;
+  padding: 8px 10px;
 }
 
 .white-acc-box {
@@ -499,15 +520,15 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .acc-box-top {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .player-mini-avatar {
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .acc-box-name {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -518,27 +539,27 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 3px 0 2px;
+  margin: 4px 0 3px;
 }
 
 .acc-num {
-  font: 900 18px/1 var(--font-latin);
+  font: 900 20px/1 var(--font-latin);
   letter-spacing: -0.6px;
 }
 
 .acc-num small {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
 .acc-lbl {
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 800;
   color: var(--text-muted);
 }
 
 .acc-bar-track {
-  height: 3px;
+  height: 4px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
   overflow: hidden;
@@ -556,19 +577,18 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .acc-sub {
-  font-size: 8px;
+  font-size: 8.5px;
   color: var(--text-dim);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-/* Ultra-Compact Evaluation Chart */
+/* Evaluation Chart */
 .chart-section {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 8px;
-  padding: 5px 8px;
-  margin-bottom: 6px;
-  flex: none;
+  border-radius: 9px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
 }
 
 .chart-header {
@@ -580,17 +600,17 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .chart-header h4 {
   margin: 0;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
 }
 
 .chart-tip {
-  font-size: 8.5px;
+  font-size: 9px;
   color: var(--text-dim);
 }
 
 .chart-wrap {
-  height: 52px;
+  height: 60px;
   background: #f3f4f2;
   border-radius: 6px;
   overflow: hidden;
@@ -601,7 +621,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .chart-empty {
-  font-size: 9px;
+  font-size: 9.5px;
   color: #7b8681;
   display: flex;
   align-items: center;
@@ -610,7 +630,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .chart-empty span {
-  font-size: 15px;
+  font-size: 16px;
   color: var(--accent-green);
 }
 
@@ -623,11 +643,10 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 /* Sidebar Tab Selector */
 .sidebar-tabs {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   border-bottom: 1px solid var(--border-light);
-  padding-bottom: 4px;
-  margin-bottom: 4px;
-  flex: none;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
 }
 
 .tab-btn {
@@ -636,13 +655,13 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   border: 1px solid transparent;
   color: var(--text-muted);
   border-radius: 6px;
-  padding: 5px 8px;
-  font-size: 10.5px;
+  padding: 6px 10px;
+  font-size: 11px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   transition: all 0.12s ease;
 }
 
@@ -658,11 +677,11 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 /* =========================================================
-   INTERNAL-ONLY SCROLLING CONTAINER
+   INTERNAL MOVES CONTAINER (Scrolls Internally ONLY)
    ========================================================= */
 .tab-content-container {
-  flex: 1;
-  min-height: 0;
+  max-height: 260px;
+  min-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -673,12 +692,8 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   width: 4px;
 }
 
-.tab-content-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
 .tab-content-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 4px;
 }
 
@@ -696,8 +711,8 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
    ========================================================= */
 .moves-header-bar {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: 34px 1fr 1fr;
+  gap: 5px;
   padding: 3px 6px;
   font-size: 9.5px;
   font-weight: 800;
@@ -714,19 +729,19 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .chesscom-moves-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   direction: ltr;
 }
 
 .move-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: 34px 1fr 1fr;
+  gap: 5px;
   align-items: center;
 }
 
 .move-number {
-  font: 800 10.5px var(--font-latin);
+  font: 800 11px var(--font-latin);
   color: var(--text-dim);
   text-align: center;
 }
@@ -736,13 +751,13 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 4px;
-  padding: 0 8px;
-  height: 28px;
-  border-radius: 5px;
+  padding: 0 9px;
+  height: 30px;
+  border-radius: 6px;
   border: 1px solid var(--border-light);
   background: var(--bg-card);
   color: #e0e9e4;
-  font: 800 11.5px var(--font-latin);
+  font: 800 12px var(--font-latin);
   direction: ltr;
   transition: background 0.1s ease, border-color 0.1s ease;
 }
@@ -760,14 +775,14 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .move-mark {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .empty-moves {
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   text-align: center;
-  padding: 18px 8px;
+  padding: 20px 8px;
 }
 
 /* =========================================================
@@ -782,22 +797,22 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .coach-avatar {
   flex: none;
-  width: 36px;
-  height: 44px;
+  width: 38px;
+  height: 46px;
   position: relative;
   display: grid;
   place-items: end center;
 }
 
 .coach-avatar div {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 10px 10px 6px 6px;
+  border-radius: 11px 11px 6px 6px;
   background: linear-gradient(160deg, #c9eab5, #94bea0);
   color: #1d3b2b;
-  font: normal 26px Georgia, serif;
+  font: normal 28px Georgia, serif;
 }
 
 .coach-avatar > span {
@@ -805,18 +820,18 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   top: 0;
   right: 0;
   color: #f9ce70;
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .coach-bubble {
   position: relative;
   background: #f4f6f4;
   color: #2b2f31;
-  border-radius: 9px 9px 2px 9px;
-  font-size: 10px;
+  border-radius: 10px 10px 2px 10px;
+  font-size: 10.5px;
   font-weight: 700;
   line-height: 1.5;
-  padding: 7px 10px;
+  padding: 8px 11px;
   flex: 1;
 }
 
@@ -824,7 +839,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   content: "";
   position: absolute;
   right: -5px;
-  top: 14px;
+  top: 15px;
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
   border-left: 0;
@@ -834,13 +849,13 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 .stats-section {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
-  border-radius: 7px;
-  padding: 4px 8px;
+  border-radius: 8px;
+  padding: 6px 9px;
 }
 
 .stat-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 46px 46px;
   align-items: center;
   gap: 4px;
   border-bottom: 1px solid var(--border-light);
@@ -854,17 +869,17 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .stats {
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .stat-line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 46px 46px;
   gap: 4px;
   align-items: center;
-  min-height: 30px;
+  min-height: 32px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  padding: 2px 4px;
+  padding: 3px 5px;
   border-radius: 4px;
 }
 
@@ -876,23 +891,23 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: flex;
   gap: 6px;
   align-items: center;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
 }
 
 .stat-icon {
-  width: 20px;
-  height: 20px;
+  width: 21px;
+  height: 21px;
   flex: none;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  font: 900 10px var(--font-latin);
+  font: 900 10.5px var(--font-latin);
 }
 
 .stat-line strong {
   text-align: center;
-  font: 900 12.5px var(--font-latin);
+  font: 900 13px var(--font-latin);
 }
 
 .stat-line .unsupported {
@@ -900,7 +915,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .method-note {
-  font-size: 8.5px;
+  font-size: 9px;
   color: var(--text-dim);
   margin-top: 6px;
   line-height: 1.5;
@@ -908,9 +923,8 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 
 /* Sidebar Footer Controls */
 .sidebar-footer {
-  flex: none;
-  margin-top: 6px;
-  padding-top: 5px;
+  margin-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid var(--border-light);
 }
 
@@ -926,7 +940,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .engine-depth label {
-  font-size: 8.5px;
+  font-size: 9px;
   color: var(--text-muted);
 }
 
@@ -936,25 +950,25 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   color: var(--text-main);
   border-radius: 6px;
   padding: 4px 6px;
-  font-size: 10px;
-  height: 32px;
-  min-width: 85px;
+  font-size: 10.5px;
+  height: 34px;
+  min-width: 88px;
 }
 
 .analyze-btn {
   flex: 1;
-  height: 32px;
-  font-size: 11px;
+  height: 34px;
+  font-size: 11.5px;
 }
 
 .progress-wrap {
-  padding: 4px 0 1px;
+  padding: 5px 0 2px;
 }
 
 .progress-label {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 9.5px;
   color: #b6dac2;
 }
 
@@ -978,14 +992,11 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   background: var(--bg-card);
   border: 1px solid var(--border-light);
   border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 9.5px;
-  line-height: 1.4;
-  margin-top: 4px;
-  min-height: 24px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 5px 9px;
+  font-size: 10px;
+  line-height: 1.5;
+  margin-top: 5px;
+  min-height: 26px;
 }
 
 .status-msg[data-type="success"] { color: #a9d9b3; }
@@ -1025,25 +1036,25 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .modal-title-wrap .kicker {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
   color: var(--accent-green);
 }
 
 .modal-title-wrap h3 {
   margin: 2px 0 0;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 900;
 }
 
 .close-modal-btn {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-light);
   color: #c0ccc7;
-  font-size: 13px;
+  font-size: 14px;
   display: grid;
   place-items: center;
 }
@@ -1068,7 +1079,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 }
 
 .modal-input-hint {
-  font-size: 9.5px;
+  font-size: 10px;
   color: var(--text-muted);
   margin-top: 6px;
 }
@@ -1079,10 +1090,28 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   justify-content: space-between;
   gap: 8px;
   margin-top: 14px;
+  flex-wrap: wrap;
 }
 
 .modal-main-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* =========================================================
+   RESPONSIVENESS (Mobile & Small Screens)
+   ========================================================= */
+@media (max-width: 860px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chessboard {
+    max-width: 440px;
+  }
+
+  .tab-content-container {
+    max-height: 320px;
+  }
 }
