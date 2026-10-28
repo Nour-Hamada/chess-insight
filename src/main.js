@@ -38,6 +38,11 @@ let analyses = null;
 let currentHint = null; // { fen, uci, from, to, san, cpText }
 let reviewDisplayPosition = -1;
 let showAlternative = true;
+let lastRenderedPosition = 0;
+let audioContext = null;
+let lastSoundTime = 0;
+let soundEnabled = true;
+try { soundEnabled = localStorage.getItem('chess-insight-sound') !== 'off'; } catch {}
 
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const formatNum = n => Number.isFinite(n) ? n.toFixed(1) : '—';
@@ -106,6 +111,7 @@ function loadGame(pgn) {
   currentPgn = pgn.trim();
   runId++;
   position = 0;
+  lastRenderedPosition = 0;
   flipped = false;
   resetResults();
 
@@ -192,7 +198,7 @@ function drawMoveArrow(grid, from, to) {
   if (!length) return;
   const ux = dx / length, uy = dy / length;
   const tip = { x: end.x - ux * 1.2, y: end.y - uy * 1.2 };
-  const base = { x: tip.x - ux * 5, y: tip.y - uy * 5 };
+  const base = { x: tip.x - ux * 4.2, y: tip.y - uy * 4.2 };
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', '0 0 100 100');
   svg.setAttribute('aria-hidden', 'true');
@@ -201,12 +207,49 @@ function drawMoveArrow(grid, from, to) {
   line.setAttribute('x1', start.x); line.setAttribute('y1', start.y);
   line.setAttribute('x2', base.x); line.setAttribute('y2', base.y);
   const head = document.createElementNS(svg.namespaceURI, 'polygon');
-  head.setAttribute('points', `${tip.x},${tip.y} ${base.x - uy * 3.5},${base.y + ux * 3.5} ${base.x + uy * 3.5},${base.y - ux * 3.5}`);
+  head.setAttribute('points', `${tip.x},${tip.y} ${base.x - uy * 2.8},${base.y + ux * 2.8} ${base.x + uy * 2.8},${base.y - ux * 2.8}`);
   svg.append(line, head);
   grid.appendChild(svg);
 }
 
+function updateSoundControl() {
+  const button = byId('sound-toggle');
+  button.textContent = soundEnabled ? '🔊' : '🔇';
+  button.title = soundEnabled ? 'إيقاف صوت النقلات' : 'تشغيل صوت النقلات';
+  button.setAttribute('aria-label', button.title);
+  button.setAttribute('aria-pressed', String(soundEnabled));
+}
+
+// A brief wooden tap generated locally; no external audio file is needed.
+function playMoveSound() {
+  if (!soundEnabled) return;
+  try {
+    const AudioEngine = window.AudioContext || window.webkitAudioContext;
+    if (!AudioEngine) return;
+    audioContext ||= new AudioEngine();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    const now = audioContext.currentTime;
+    if (now - lastSoundTime < 0.09 && lastSoundTime !== 0) return;
+    lastSoundTime = now;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(620, now);
+    oscillator.frequency.exponentialRampToValueAtTime(220, now + 0.07);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.19, now + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.095);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.1);
+  } catch {} // Audio availability must never block board navigation.
+}
+
 function renderBoard() {
+  if (position !== lastRenderedPosition) {
+    playMoveSound();
+    lastRenderedPosition = position;
+  }
   const grid = byId('board');
   grid.replaceChildren();
   const currentFen = game ? game.fens[position] : START_FEN;
@@ -1067,6 +1110,13 @@ byId('pgn-modal-file').addEventListener('change', handleFileInput);
 byId('analyze-btn').addEventListener('click', startAnalysis);
 byId('cancel-btn').addEventListener('click', cancelAnalysis);
 byId('hint-btn').addEventListener('click', showBestMoveHint);
+byId('sound-toggle').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  try { localStorage.setItem('chess-insight-sound', soundEnabled ? 'on' : 'off'); } catch {}
+  updateSoundControl();
+  if (soundEnabled) playMoveSound();
+});
+updateSoundControl();
 byId('alternative-toggle').addEventListener('click', () => {
   showAlternative = !showAlternative;
   currentHint = null;
