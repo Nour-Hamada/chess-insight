@@ -12,3 +12,7 @@ Thumbs.db
 
 # Vite cache
 .vite/
+
+# Generated local chess image recognition model assets
+public/models/
+public/ort/
