@@ -16,7 +16,8 @@
     "stockfish": "19.0.1"
   },
   "devDependencies": {
-    "vite": "^6.3.0",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "linkedom": "^0.18.12",
+    "vite": "^6.3.0"
   }
 }

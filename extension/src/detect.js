@@ -4,11 +4,55 @@ const file = 'abcdefgh';
 const names = { pawn: 'p', knight: 'n', bishop: 'b', rook: 'r', queen: 'q', king: 'k' };
 export function sanText(element) {
   const figurines = { '♔': 'K', '♚': 'K', '♕': 'Q', '♛': 'Q', '♖': 'R', '♜': 'R', '♗': 'B', '♝': 'B', '♘': 'N', '♞': 'N', '♙': '', '♟': '' };
-  let text = element.textContent.trim().replace(/[♔♚♕♛♖♜♗♝♘♞♙♟]/g, x => figurines[x]);
+  const content = element.cloneNode(true);
+  for (const extra of content.querySelectorAll('.timestamp, .move-time, .annotation, [data-nag], .evaluation, draw')) extra.remove();
+  let text = (element.dataset.san || element.dataset.uci || content.textContent).trim().replace(/[♔♚♕♛♖♜♗♝♘♞♙♟]/g, x => figurines[x]);
   const icon = element.querySelector('[data-figurine], .icon-font-chess');
-  const kind = icon?.dataset.figurine || Object.keys(names).find(name => icon?.className.includes(name));
-  if (kind && !/^[KQRBN]/.test(text)) text = (names[kind]?.toUpperCase() || kind.toUpperCase()) + text;
-  return text.replace(/\d+\.(\.\.)?/g, '').replace(/[!?\s]/g, '').replace(/^[.…]+/, '');
+  const kind = icon?.dataset.figurine?.toLowerCase() || Object.keys(names).find(name => icon?.classList.contains(name) || icon?.getAttribute('class')?.includes(name));
+  const piece = names[kind] || (/^[pnbrqk]$/.test(kind || '') ? kind : null);
+  text = text.replace(/[\u200b-\u200f\u202a-\u202e\ufe0e\ufe0f]/g, '').replace(/^\s*\d+\.(?:\.\.)?\s*/, '').replace(/[!?\s]/g, '').replace(/^[.…]+/, '').replace(/e\.?p\.?$/i, '');
+  if (piece && piece !== 'p' && !/^[KQRBN]/.test(text)) text = piece.toUpperCase() + text;
+  return text.replace(/^0-0-0/, 'O-O-O').replace(/^0-0/, 'O-O');
+}
+
+export function readMoveHistory(doc, type, boardElement) {
+  let list = [];
+  if (type === 'Chess.com') {
+    // The analysis board uses wc-move-list; play/bot pages use
+    // wc-simple-move-list. Reading only the former breaks midgame activation.
+    const roots = [...doc.querySelectorAll('wc-move-list, wc-simple-move-list, vertical-move-list, move-list, #live-game-tab-scroll-container, .play-controller-moveList')];
+    const owned = roots.filter(root => boardElement.id && root.getAttribute('board-id') === boardElement.id);
+    const sources = owned.length ? owned : roots.length ? roots : [doc];
+    for (const root of sources) {
+      let nodes = [...root.querySelectorAll('.main-line-ply')].filter(n => !n.dataset.node || n.dataset.node.startsWith('0-'));
+      if (!nodes.length) nodes = [...root.querySelectorAll('.node-highlight-content, .move-text-component, [data-san], [data-uci]')].filter(n => !n.closest('.variation, .variation-line, .variation-move-list'));
+      const leaves = nodes.map(n => n.querySelector('.node-highlight-content, .move-text-component') || n);
+      // Nested list roots and responsive duplicates must not duplicate plies.
+      const unique = [...new Set(leaves)].filter(n => !leaves.some(other => other !== n && n.contains(other)));
+      if (unique.length > list.length) list = unique;
+    }
+  } else {
+    list = [...doc.querySelectorAll('.tview2 move, .analyse__moves move, .round__app .moves move, rm6 l4x kwdb')];
+    // Lichess round views use changing, shortened tag names. Discover a group
+    // of sibling SAN moves structurally instead of depending on those names.
+    const groups = new Map();
+    const sanPattern = /^(?:O-O(?:-O)?|[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?)[+#]?$/;
+    for (const node of doc.querySelectorAll('.round__app *')) {
+      if (!sanPattern.test(sanText(node)) || [...node.children].some(child => child.tagName.toLowerCase() !== 'draw')) continue;
+      const group = groups.get(node.parentElement) || [];
+      group.push(node); groups.set(node.parentElement, group);
+    }
+    for (const group of groups.values()) if (group.length > list.length) list = group;
+  }
+  const moves = [];
+  let selectedPly = null;
+  for (const node of list) {
+    const san = sanText(node);
+    if (!san || /^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(san)) continue;
+    moves.push(san);
+    if (node.matches('.selected, .active, .a1t') || node.closest('.main-line-ply')?.matches('.selected, .active')) selectedPly = moves.length;
+  }
+  return { sans: moves, selectedPly };
 }
 function visible(element) {
   const r = element.getBoundingClientRect();
@@ -56,17 +100,13 @@ export function detectBoard(doc = document) {
   } else return null;
   // Wait for animations/re-rendering rather than analyzing a half-updated board.
   if ((placement.match(/K/g) || []).length !== 1 || (placement.match(/k/g) || []).length !== 1) return null;
-  const list = type === 'Chess.com'
-    ? [...doc.querySelectorAll('wc-move-list .main-line-ply[data-node^="0-"]')].map(n => n.querySelector('.node-highlight-content') || n)
-    : [...doc.querySelectorAll('.tview2 move, .analyse__moves move, .round__app .moves move')];
-  const sans = list.map(sanText).filter(x => x && !/^(1-0|0-1|1\/2-1\/2|½-½|\*)$/.test(x));
-  const selected = list.findIndex(n => n.matches('.selected, .active') || n.closest('.main-line-ply')?.matches('.selected, .active'));
+  const { sans, selectedPly } = readMoveHistory(doc, type, element);
   if (!fullFen) {
     for (const input of doc.querySelectorAll('input.fen, input[name="fen"], .copyables input, input[aria-label*="FEN"], textarea[name="fen"]')) {
       if (input.value?.split(' ')[0] === placement) { fullFen = input.value.trim(); break; }
     }
   }
-  return { element, placement, fullFen, sans, selectedPly: selected >= 0 ? selected + 1 : null, flipped, type, rect };
+  return { element, placement, fullFen, sans, selectedPly, flipped, type, rect };
 }
 
 export function arrowPoints(move, flipped = false) {

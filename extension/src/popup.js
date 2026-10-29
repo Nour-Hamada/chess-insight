@@ -6,7 +6,7 @@ $('enabled').checked = config.enabled; $('depth').value = String(config.depth);
 async function status() {
   try {
     const state = await chrome.tabs.sendMessage(tab.id, { type: 'CI_STATUS' });
-    $('status').textContent = state.found ? 'تم رصد رقعة في هذه الصفحة.' : 'الإضافة جاهزة وتنتظر ظهور رقعة.';
+    $('status').textContent = !state.enabled ? 'التحليل التلقائي متوقف.' : state.paused ? 'التحليل متوقف مؤقتًا؛ اضغط تفعيل للاستئناف.' : state.needsPosition ? 'رُصدت الرقعة؛ افتح سجل النقلات أو أدخل FEN كاملًا في لوحة الإضافة.' : state.found ? 'تم رصد الرقعة والوضعية في هذه الصفحة.' : 'الإضافة جاهزة وتنتظر ظهور رقعة.';
   } catch { $('status').textContent = 'افتح صفحة رقعة، ثم فعّل الإضافة هنا.'; }
 }
 $('enabled').addEventListener('change', () => chrome.storage.local.set({ enabled: $('enabled').checked }));

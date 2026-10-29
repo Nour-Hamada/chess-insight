@@ -7,6 +7,7 @@ Load `extension-dist/Chess-Insight-Extension` at `chrome://extensions` with Deve
 Arabic installation and usage instructions are in `INSTALL_AR.html`.
 
 Automatic adapters cover the visible main board on Chess.com, Lichess, and Chess Insight.
+Version 1.0.1 fixes midgame activation by reading Chess.com's simple/live move lists as well as its analysis move list, preserving piece figurines and selected-ply navigation.
 Other sites can be enabled per origin from the popup; their board must expose a complete `data-fen`.
 Images, Canvas boards, closed shadow roots and cross-origin frames are not read.
 

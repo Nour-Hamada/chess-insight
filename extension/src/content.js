@@ -154,7 +154,7 @@ function start() {
   }
   chrome.storage.onChanged.addListener((changes, area) => { if (area === 'local' && (changes.enabled || changes.depth)) settings(); });
   chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-    if (message?.type === 'CI_STATUS') { respond({ found: !!reading, fen: position?.fen, paused, enabled }); return false; }
+    if (message?.type === 'CI_STATUS') { respond({ found: !!reading, needsPosition: !!reading && !position, fen: position?.fen, paused, enabled }); return false; }
     if (message?.type === 'CI_RESUME') { paused = false; text('pause', 'إيقاف مؤقت'); settings(); respond({ ok: true }); }
     return false;
   });
