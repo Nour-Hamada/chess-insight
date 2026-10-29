@@ -7,12 +7,13 @@ Load `extension-dist/Chess-Insight-Extension` at `chrome://extensions` with Deve
 Arabic installation and usage instructions are in `INSTALL_AR.html`.
 
 Automatic adapters cover the visible main board on Chess.com, Lichess, and Chess Insight.
+Version 1.0.2 analyzes the visible piece placement even without game history. It reads the side from explicit board attributes, an active clock or unambiguous last-move markers; if unavailable, selecting White/Black starts evaluation immediately. The visual fallback excludes unconfirmed castling and discloses its assumptions. Castling and en passant can be corrected in the position tools. A read-only Chess.com board-position adapter supplies authoritative FEN where available and overrides the approximate snapshot only when placement matches. A visible version number, replacement of stale panels after updates, and a copyable diagnostic report help troubleshoot remaining site differences.
 Version 1.0.1 fixes midgame activation by reading Chess.com's simple/live move lists as well as its analysis move list, preserving piece figurines and selected-ply navigation.
 Other sites can be enabled per origin from the popup; their board must expose a complete `data-fen`.
 Images, Canvas boards, closed shadow roots and cross-origin frames are not read.
 
 Positions come from explicit FEN, a matching main-line move history, or legal transitions from a known position.
-An arbitrary arrangement without known turn/castling rights requires full FEN; these fields are never inferred from appearance.
+Without history, the visible placement can be analyzed when the side is known from the board or selected explicitly. Unconfirmed castling is excluded and a visible notice explains the resulting limits. Exact FEN or explicit correction of castling and en passant provides a more complete position. The visual snapshot has no repetition history; use the full game for history-dependent draw analysis.
 The latest position takes priority, stale search results are discarded, and arrows follow board orientation and scrolling.
 Positive scores favor White. Stockfish search depth can be changed in the popup.
 

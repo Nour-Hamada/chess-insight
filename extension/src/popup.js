@@ -1,4 +1,5 @@
 const $ = id => document.getElementById(id);
+document.querySelector('h1').textContent += ' · ' + chrome.runtime.getManifest().version;
 let tab;
 const config = await chrome.storage.local.get({ enabled: true, depth: 14 });
 $('enabled').checked = config.enabled; $('depth').value = String(config.depth);
@@ -6,7 +7,7 @@ $('enabled').checked = config.enabled; $('depth').value = String(config.depth);
 async function status() {
   try {
     const state = await chrome.tabs.sendMessage(tab.id, { type: 'CI_STATUS' });
-    $('status').textContent = !state.enabled ? 'التحليل التلقائي متوقف.' : state.paused ? 'التحليل متوقف مؤقتًا؛ اضغط تفعيل للاستئناف.' : state.needsPosition ? 'رُصدت الرقعة؛ افتح سجل النقلات أو أدخل FEN كاملًا في لوحة الإضافة.' : state.found ? 'تم رصد الرقعة والوضعية في هذه الصفحة.' : 'الإضافة جاهزة وتنتظر ظهور رقعة.';
+    $('status').textContent = !state.enabled ? 'التحليل التلقائي متوقف.' : state.paused ? 'التحليل متوقف مؤقتًا؛ اضغط تفعيل للاستئناف.' : state.needsPosition ? 'رُصدت الأحجار؛ اختر صاحب الدور من لوحة الإضافة لبدء التقييم.' : state.found ? 'تم رصد الرقعة والوضعية في هذه الصفحة.' : 'الإضافة جاهزة وتنتظر ظهور رقعة.';
   } catch { $('status').textContent = 'افتح صفحة رقعة، ثم فعّل الإضافة هنا.'; }
 }
 $('enabled').addEventListener('change', () => chrome.storage.local.set({ enabled: $('enabled').checked }));
@@ -26,6 +27,7 @@ $('activate').addEventListener('click', async () => {
       if (!existing.length) await chrome.scripting.registerContentScripts([{ id, matches: [pattern], js: ['content.js'], runAt: 'document_idle', persistAcrossSessions: true }]);
     }
     await chrome.storage.local.set({ enabled: true }); $('enabled').checked = true;
+    if (/^https:\/\/(www\.)?chess\.com$/.test(origin)) await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['board-state.js'], world: 'MAIN' });
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
     await chrome.tabs.sendMessage(tab.id, { type: 'CI_RESUME' });
     await status();

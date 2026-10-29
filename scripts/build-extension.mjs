@@ -6,7 +6,7 @@ const manifest = JSON.parse(await readFile('extension/manifest.json', 'utf8'));
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 for (const file of ['manifest.json', 'offscreen.html', 'popup.html', 'popup.css', 'INSTALL_AR.html']) await copyFile(path.join(root, 'extension', file), path.join(out, file));
-for (const name of ['content', 'background', 'engine-host', 'popup']) await build({ entryPoints: [`extension/src/${name}.js`], bundle: true, outfile: path.join(out, name + '.js'), format: name === 'popup' ? 'esm' : 'iife', target: 'chrome116', minify: false, legalComments: 'eof' });
+for (const name of ['content', 'background', 'engine-host', 'popup', 'board-state']) await build({ entryPoints: [`extension/src/${name}.js`], bundle: true, outfile: path.join(out, name + '.js'), format: name === 'popup' ? 'esm' : 'iife', target: 'chrome116', minify: false, legalComments: 'eof', define: { __CI_VERSION__: JSON.stringify(manifest.version) } });
 // Popup uses top-level await in its bundled module.
 await writeFile(path.join(out, 'popup.html'), (await readFile(path.join(out, 'popup.html'), 'utf8')).replace('src="popup.js"', 'type="module" src="popup.js"'));
 await mkdir(path.join(out, 'engine'), { recursive: true });

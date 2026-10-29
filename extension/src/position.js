@@ -17,6 +17,27 @@ export function makePlacement(pieces) {
   return ranks.join('/');
 }
 
+export function positionFromPieces(placement, { turn, castling = '-', epSquare = '-' }) {
+  if (!['w', 'b'].includes(turn)) throw new Error('اختر صاحب الدور أولًا.');
+  if (!/^(?:-|K?Q?k?q?)$/.test(castling) || !castling) throw new Error('حقوق التبييت غير صالحة.');
+  if (!/^(?:-|[a-h][36])$/.test(epSquare)) throw new Error('مربع الأخذ بالتجاوز يجب أن يكون مثل d6 أو -.');
+  const board = new Chess(`${placement} ${turn} - - 0 1`);
+  for (const [right, color, rook] of [['K', 'w', 'h1'], ['Q', 'w', 'a1'], ['k', 'b', 'h8'], ['q', 'b', 'a8']]) {
+    if (!castling.includes(right)) continue;
+    const king = board.get(color === 'w' ? 'e1' : 'e8'), piece = board.get(rook);
+    if (king?.type !== 'k' || king.color !== color || piece?.type !== 'r' || piece.color !== color) throw new Error('التبييت المحدد لا يطابق مواضع الملك والرخ.');
+  }
+  return new Chess(`${placement} ${turn} ${castling} ${epSquare} 0 1`).fen();
+}
+
+export function visibleEnPassant(lastMove, turn) {
+  if (!lastMove || lastMove.piece?.[1] !== 'p' || lastMove.piece[0] === turn || lastMove.from[0] !== lastMove.to[0]) return '-';
+  const [from, to] = [Number(lastMove.from[1]), Number(lastMove.to[1])];
+  if (lastMove.piece[0] === 'w' && from === 2 && to === 4) return lastMove.from[0] + '3';
+  if (lastMove.piece[0] === 'b' && from === 7 && to === 5) return lastMove.from[0] + '6';
+  return '-';
+}
+
 // Placement alone cannot tell whose turn it is or recover castling rights.
 // Preserve a legal history whenever possible; otherwise require an explicit FEN.
 export class PositionTracker {
@@ -56,7 +77,7 @@ export class PositionTracker {
         const board = new Chess(initialFen);
         let match = placementOf(board.fen()) === placement ? new Chess(initialFen) : null;
         for (const san of sans.slice(0, selectedPly ?? sans.length)) {
-          board.move(san);
+          try { board.move(san); } catch { break; }
           if (placementOf(board.fen()) === placement) {
             match = new Chess(initialFen);
             for (const move of board.history()) match.move(move);

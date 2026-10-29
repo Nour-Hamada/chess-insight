@@ -58,6 +58,30 @@ function visible(element) {
   const r = element.getBoundingClientRect();
   return r.width >= 180 && r.height >= 180 && Math.abs(r.width - r.height) < r.width * .12 && getComputedStyle(element).visibility !== 'hidden';
 }
+function lastVisibleMove(element, pieces) {
+  const squares = [...new Set([...element.querySelectorAll('.highlight')].map(node => [...node.classList].find(c => /^square-[1-8][1-8]$/.test(c))).filter(Boolean))];
+  if (squares.length !== 2) return null;
+  const names = squares.map(s => file[Number(s[7]) - 1] + s[8]);
+  const from = names.find(square => !pieces.has(square)), to = names.find(square => pieces.has(square));
+  return from && to ? { from, to, piece: pieces.get(to) } : null;
+}
+export function readVisibleTurn(doc, element, flipped, lastMove = null) {
+  const explicit = element.getAttribute('data-turn');
+  if (['w', 'b', 'white', 'black'].includes(explicit)) return { turn: explicit[0], turnSource: 'دور الرقعة' };
+  const scope = element.closest('.board-layout-main, .board-layout-component, .round__app') || doc;
+  const clocks = [...scope.querySelectorAll('.clock-player-turn, .rclock.running')].filter(clock => {
+    const rect = clock.getBoundingClientRect(); return rect.width > 0 && rect.height > 0;
+  });
+  if (clocks.length === 1) {
+    const clock = clocks[0];
+    if (clock.closest('.clock-white, .rclock-white')) return { turn: 'w', turnSource: 'الساعة النشطة' };
+    if (clock.closest('.clock-black, .rclock-black')) return { turn: 'b', turnSource: 'الساعة النشطة' };
+    if (clock.closest('.clock-top, .rclock-top')) return { turn: flipped ? 'w' : 'b', turnSource: 'الساعة النشطة' };
+    if (clock.closest('.clock-bottom, .rclock-bottom')) return { turn: flipped ? 'b' : 'w', turnSource: 'الساعة النشطة' };
+  }
+  if (lastMove?.piece) return { turn: lastMove.piece[0] === 'w' ? 'b' : 'w', turnSource: 'آخر نقلة مظلّلة' };
+  return { turn: null, turnSource: null };
+}
 export function detectBoard(doc = document) {
   const candidates = [...doc.querySelectorAll('wc-chess-board, chess-board, cg-board, [data-fen]')].filter(visible);
   const element = candidates.sort((a, b) => b.getBoundingClientRect().width - a.getBoundingClientRect().width)[0];
@@ -106,7 +130,8 @@ export function detectBoard(doc = document) {
       if (input.value?.split(' ')[0] === placement) { fullFen = input.value.trim(); break; }
     }
   }
-  return { element, placement, fullFen, sans, selectedPly, flipped, type, rect };
+  const lastMove = lastVisibleMove(element, pieces);
+  return { element, placement, fullFen, sans, selectedPly, flipped, type, rect, lastMove, ...readVisibleTurn(doc, element, flipped, lastMove) };
 }
 
 export function arrowPoints(move, flipped = false) {
