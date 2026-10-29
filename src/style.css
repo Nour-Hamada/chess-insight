@@ -2058,3 +2058,12 @@ button, select { line-height: 1.5; }
   padding: 3px 6px;
   vertical-align: middle;
 }
+
+/* The side to move must be chosen by the user. */
+.turn-select-wrap { flex-wrap: wrap; }
+.turn-select-wrap.needs-choice .btn-turn { border-color: #f0b232; animation: turnPulse 1.2s ease-in-out infinite; }
+@keyframes turnPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 178, 50, .55); } 50% { box-shadow: 0 0 0 6px rgba(240, 178, 50, 0); } }
+.turn-hint { flex-basis: 100%; margin: 4px 0 0; font-size: 12px; font-weight: 700; min-height: 0; }
+.turn-hint:empty { display: none; }
+.turn-hint[data-tone="warn"] { color: #f7c978; }
+.turn-hint[data-tone="error"] { color: #ff989d; }

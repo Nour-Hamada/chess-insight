@@ -15,6 +15,8 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   const fenInput = document.getElementById('screenshot-fen-input');
   const turnWhiteBtn = document.getElementById('turn-white-btn');
   const turnBlackBtn = document.getElementById('turn-black-btn');
+  const turnWrap = document.querySelector('.turn-select-wrap');
+  const turnHint = document.getElementById('turn-hint');
   const evaluateBtn = document.getElementById('screenshot-evaluate-btn');
   const resetBtn = document.getElementById('screenshot-reset-btn');
   const piecePalette = document.getElementById('screenshot-piece-palette');
@@ -37,7 +39,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   // 8x8 piece grid: null or { color: 'w'|'b', type: 'p'|'n'|'b'|'r'|'q'|'k' }
   let currentGrid = createInitialGrid();
-  let activeTurn = 'w';
+  let activeTurn = null; // Chosen explicitly by the user; never assumed.
   let activeSquare = null;
   let currentImageBlob = null;
   let currentImageUrl = null;
@@ -101,7 +103,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   function resetView() {
     scanGeneration++; // Invalidates a previous asynchronous recognition attempt.
     currentGrid = createInitialGrid();
-    activeTurn = 'w';
+    clearTurnChoice();
     setReviewRequired(false);
     activeSquare = null;
     currentImageBlob = null;
@@ -275,9 +277,30 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   function setTurn(turn) {
     activeTurn = turn;
-    turnWhiteBtn?.classList.toggle('active', turn === 'w');
-    turnBlackBtn?.classList.toggle('active', turn === 'b');
+    syncTurnUi();
     updateFenFromGrid();
+  }
+
+  function clearTurnChoice() {
+    activeTurn = null;
+    syncTurnUi();
+  }
+
+  // The side to move changes the whole evaluation, so it is always the user's explicit choice.
+  function syncTurnUi() {
+    turnWhiteBtn?.classList.toggle('active', activeTurn === 'w');
+    turnBlackBtn?.classList.toggle('active', activeTurn === 'b');
+    turnWhiteBtn?.setAttribute('aria-pressed', String(activeTurn === 'w'));
+    turnBlackBtn?.setAttribute('aria-pressed', String(activeTurn === 'b'));
+    turnWrap?.classList.toggle('needs-choice', !activeTurn);
+    if (!turnHint) return;
+    if (!activeTurn) {
+      turnHint.textContent = '⚠️ اختر من هو صاحب الدور (من سيلعب الآن) قبل التقييم.';
+      turnHint.dataset.tone = 'warn';
+    } else {
+      turnHint.textContent = '';
+      turnHint.dataset.tone = '';
+    }
   }
 
   // Transformation Tool Buttons
@@ -343,14 +366,9 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     if (!val) return;
     try {
       const parts = val.split(/\s+/);
-      if (parts[1] === 'b') {
-        activeTurn = 'b';
-        turnWhiteBtn?.classList.remove('active');
-        turnBlackBtn?.classList.add('active');
-      } else {
-        activeTurn = 'w';
-        turnWhiteBtn?.classList.add('active');
-        turnBlackBtn?.classList.remove('active');
+      if (parts[1] === 'b' || parts[1] === 'w') {
+        activeTurn = parts[1];
+        syncTurnUi();
       }
       if (!validatePlacement(parts[0]).ok) return;
       gridFromPlacement(parts[0]);
@@ -363,6 +381,11 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   // Evaluate Button Action
   evaluateBtn?.addEventListener('click', () => {
     const fen = getNormalizedLegalFen();
+    if (!activeTurn) {
+      scanStatus.textContent = 'اختر أولاً من هو صاحب الدور (⚪ أبيض أو ⚫ أسود).';
+      scanStatus.className = 'screenshot-status error';
+      return;
+    }
     if (!fen) {
       scanStatus.textContent = 'الوضعية غير مكتملة. تأكد من وجود ملك أبيض وملك أسود على الرقعة.';
       scanStatus.className = 'screenshot-status error';
@@ -430,9 +453,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     if (!file) return;
     currentImageBlob = file;
     currentGrid = blankGrid();
-    activeTurn = 'w';
-    turnWhiteBtn?.classList.add('active');
-    turnBlackBtn?.classList.remove('active');
+    clearTurnChoice();
     setReviewRequired(true);
     renderMiniBoardFromGrid();
     updateFenFromGrid();
@@ -538,19 +559,22 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   function updateFenFromGrid() {
     const placement = gridToPlacement();
-    if (fenInput) fenInput.value = `${placement} ${activeTurn} - - 0 1`;
+    if (fenInput) fenInput.value = activeTurn ? `${placement} ${activeTurn} - - 0 1` : placement;
     validateSubmit();
   }
 
   function getNormalizedLegalFen() {
     const placement = gridToPlacement();
-    if (!validatePlacement(placement).ok) return null;
+    if (!activeTurn || !validatePlacement(placement).ok) return null;
     try {
       const fen = `${placement} ${activeTurn} - - 0 1`;
       const board = new Chess(fen);
       // The opponent (the player who just moved) cannot be in check.
       const opposite = new Chess(`${placement} ${activeTurn === 'w' ? 'b' : 'w'} - - 0 1`);
-      if (opposite.isCheck()) return null;
+      if (opposite.isCheck()) {
+        if (turnHint) { turnHint.textContent = '❌ هذا الدور غير ممكن: ملك الخصم مهدد بالفعل. جرّب اللون الآخر.'; turnHint.dataset.tone = 'error'; }
+        return null;
+      }
       return board.fen();
     } catch { return null; }
   }
@@ -680,6 +704,8 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       updateFenFromGrid();
     });
   });
+
+  syncTurnUi();
 
   // Initial render
   renderMiniBoardFromGrid();

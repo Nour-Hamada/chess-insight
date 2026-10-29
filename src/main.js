@@ -1581,6 +1581,8 @@ function applyPositionFromScreenshot(fen) {
     const session = new ManualSession(safeFen);
     if (!manualMode) enterManualMode(true);
     manualSession = session;
+    // The chosen side to move sits at the bottom, so the best move reads from their view.
+    flipped = safeFen.split(' ')[1] === 'b';
     manualShowBest = true;
     selectedSquare = null;
     currentHint = null;
