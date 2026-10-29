@@ -207,23 +207,27 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   }
 
   function drawCropSelection(start, end) {
-    const side = Math.min(Math.abs(end.x - start.x), Math.abs(end.y - start.y));
-    const x = end.x < start.x ? start.x - side : start.x;
-    const y = end.y < start.y ? start.y - side : start.y;
+    const rect = imgElement.getBoundingClientRect();
+    const stage = imgElement.parentElement.getBoundingClientRect();
+    // A square in real pixels (NOT in 0..1 normalized coordinates).
+    const sidePx = Math.min(
+      Math.abs(end.x - start.x) * rect.width,
+      Math.abs(end.y - start.y) * rect.height,
+    );
+    const width = sidePx / rect.width;
+    const height = sidePx / rect.height;
+    const x = end.x < start.x ? start.x - width : start.x;
+    const y = end.y < start.y ? start.y - height : start.y;
     if (cropOverlay) {
-      // Position relative to the displayed image, not the surrounding stage
-      // (which may be wider when a tall screenshot is letterboxed).
-      const rect = imgElement.getBoundingClientRect();
-      const stage = imgElement.parentElement.getBoundingClientRect();
       cropOverlay.hidden = false;
       Object.assign(cropOverlay.style, {
         left: (rect.left - stage.left + x * rect.width) + 'px',
         top: (rect.top - stage.top + y * rect.height) + 'px',
-        width: (side * rect.width) + 'px',
-        height: (side * rect.height) + 'px',
+        width: sidePx + 'px',
+        height: sidePx + 'px',
       });
     }
-    return { x, y, side };
+    return { x, y, width, height, sidePx };
   }
 
   imgElement.addEventListener('pointerdown', e => {
@@ -244,7 +248,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     if (!cropStart) return;
     const selection = drawCropSelection(cropStart, cropRectFromPointer(e));
     cropStart = null;
-    if (selection.side < 0.10 || !imgElement.naturalWidth) {
+    if (selection.sidePx < 32 || !imgElement.naturalWidth) {
       if (cropOverlay) cropOverlay.hidden = true;
       return;
     }
@@ -254,8 +258,8 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     canvas.getContext('2d').drawImage(imgElement,
       selection.x * imgElement.naturalWidth,
       selection.y * imgElement.naturalHeight,
-      selection.side * imgElement.naturalWidth,
-      selection.side * imgElement.naturalHeight,
+      selection.width * imgElement.naturalWidth,
+      selection.height * imgElement.naturalHeight,
       0, 0, 768, 768);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (blob) await scanImage(blob, true);
