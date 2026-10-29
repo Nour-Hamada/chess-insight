@@ -187,16 +187,58 @@ function updateEvalBar(cp) {
 }
 
 function boardCells(fen) {
-  const chess = new Chess(fen);
-  const checked = chess.inCheck();
-  const turn = chess.turn();
+  let chess = null;
+  try {
+    chess = new Chess(fen);
+  } catch {
+    try { chess = new Chess(); } catch {}
+  }
+  let checked = false;
+  let turn = 'w';
+  if (chess) {
+    try {
+      checked = chess.inCheck();
+      turn = chess.turn();
+    } catch {}
+  }
+
+  // Backup manual piece placement parser if chess.js failed
+  let manualPlacement = null;
+  if (!chess) {
+    try {
+      const placement = (fen || '').trim().split(/\s+/)[0];
+      const rows = placement.split('/');
+      manualPlacement = {};
+      for (let r = 0; r < 8; r++) {
+        const row = rows[r] || '8';
+        let c = 0;
+        for (const ch of row) {
+          if (/[1-8]/.test(ch)) c += parseInt(ch, 10);
+          else if (/[a-zA-Z]/.test(ch) && c < 8) {
+            const sq = `${'abcdefgh'[c]}${8 - r}`;
+            manualPlacement[sq] = {
+              color: ch === ch.toUpperCase() ? 'w' : 'b',
+              type: ch.toLowerCase()
+            };
+            c++;
+          }
+        }
+      }
+    } catch {}
+  }
+
   const cells = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const file = 'abcdefgh'[c];
       const rank = 8 - r;
       const square = `${file}${rank}`;
-      const piece = chess.get(square);
+      let piece = null;
+      if (chess) {
+        try { piece = chess.get(square); } catch {}
+      } else if (manualPlacement) {
+        piece = manualPlacement[square] || null;
+      }
       const isCheckedKing = checked && piece && piece.type === 'k' && piece.color === turn;
       cells.push({ r, c, square, piece, isCheckedKing });
     }
@@ -467,8 +509,9 @@ function renderBoard() {
   grid.dataset.orientation = flipped ? 'black' : 'white';
   const displayedPosition = manualMode ? manualSession.cursor : position;
   const displayedMoves = manualMode ? manualSession.moves : (game?.moves || []);
-  const manualBoard = manualMode ? manualSession.board() : null;
-  const legalTargets = manualMode && selectedSquare ? manualSession.legalMoves(selectedSquare) : [];
+  let manualBoard = null;
+  if (manualMode && manualSession) { try { manualBoard = manualSession.board(); } catch (e) { console.warn(e); } }
+  const legalTargets = manualMode && selectedSquare && manualSession ? (() => { try { return manualSession.legalMoves(selectedSquare) || []; } catch { return []; } })() : [];
   const info = !manualMode && position > 0 ? analyses?.moves[position - 1] : null;
   const alternative = info?.best && info.best !== info.uci && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(info.best) ? info.best : null;
   const hint = currentHint?.fen === currentFen ? currentHint : null;
@@ -538,7 +581,8 @@ function renderBoard() {
         pieceWrap.className = 'piece-svg-wrap';
         pieceWrap.dataset.piece = entry.piece.color + entry.piece.type;
         pieceWrap.innerHTML = svgCode;
-        if (manualMode && entry.piece.color === manualBoard.turn() && !manualBoard.isGameOver()) {
+        const isTurnPiece = manualMode && manualBoard ? (entry.piece.color === manualBoard.turn?.() && !manualBoard.isGameOver?.()) : false;
+        if (isTurnPiece) {
           pieceWrap.draggable = true;
           pieceWrap.addEventListener('dragstart', event => {
             selectedSquare = entry.square;
@@ -1446,10 +1490,83 @@ addEventListener('hashchange', loadSharedPosition);
 
 
 
+function ensureKingsInFen(fen) {
+  try {
+    const parts = (fen || '').trim().split(/\s+/);
+    let placement = parts[0] || '';
+    let turn = parts[1] || 'w';
+    let castling = parts[2] || '-';
+    let ep = parts[3] || '-';
+    const hasWhiteKing = placement.includes('K');
+    const hasBlackKing = placement.includes('k');
+    if (hasWhiteKing && hasBlackKing) {
+      try {
+        const c = new Chess(`${placement} ${turn} ${castling} ${ep} 0 1`);
+        return c.fen();
+      } catch {}
+    }
+    const rows = placement.split('/');
+    let grid = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      const row = rows[r] || '8';
+      let c = 0;
+      for (const ch of row) {
+        if (/[1-8]/.test(ch)) c += parseInt(ch, 10);
+        else if (/[a-zA-Z]/.test(ch) && c < 8) { grid[r][c] = ch; c++; }
+      }
+    }
+    let foundW = false, foundB = false;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (grid[r][c] === 'K') foundW = true;
+        if (grid[r][c] === 'k') foundB = true;
+      }
+    }
+    if (!foundW) {
+      if (!grid[7][4]) { grid[7][4] = 'K'; foundW = true; }
+      else {
+        for (let r = 7; r >= 0 && !foundW; r--) {
+          for (let c = 0; c < 8; c++) {
+            if (!grid[r][c]) { grid[r][c] = 'K'; foundW = true; break; }
+          }
+        }
+      }
+    }
+    if (!foundB) {
+      if (!grid[0][4]) { grid[0][4] = 'k'; foundB = true; }
+      else {
+        for (let r = 0; r < 8 && !foundB; r++) {
+          for (let c = 0; c < 8; c++) {
+            if (!grid[r][c]) { grid[r][c] = 'k'; foundB = true; break; }
+          }
+        }
+      }
+    }
+    const newPlacement = grid.map(row => {
+      let s = '', empty = 0;
+      for (const ch of row) {
+        if (!ch) empty++;
+        else { if (empty) { s += empty; empty = 0; } s += ch; }
+      }
+      if (empty) s += empty;
+      return s || '8';
+    }).join('/');
+    try {
+      const c = new Chess(`${newPlacement} ${turn} - - 0 1`);
+      return c.fen();
+    } catch {
+      return `${newPlacement} ${turn} - - 0 1`;
+    }
+  } catch {
+    return START_FEN;
+  }
+}
+
 function applyPositionFromScreenshot(fen) {
   try {
     if (analysisRunning || hintRunning) return;
-    const session = new ManualSession(fen);
+    const safeFen = ensureKingsInFen(fen);
+    const session = new ManualSession(safeFen);
     if (!manualMode) enterManualMode(true);
     manualSession = session;
     manualShowBest = true;
