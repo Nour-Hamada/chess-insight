@@ -82,39 +82,58 @@ async function cropModelBoard(source, corners) {
 }
 
 export async function recognizeScreenshot(source) {
-  // First handle the user's exact neutral-gray chess.com piece style using
-  // shape comparison; do not let the more generic ONNX model hallucinate bishops.
+  let grayscaleCandidate = null;
   try {
     const local = await recognizeGrayscaleBoard(source);
-    if (local && validatePlacement(local.placement).ok) return local;
-  } catch (error) {
-    console.debug('Grayscale recognition skipped:', error);
-  }
+    if (local && validatePlacement(local.placement).ok) {
+      grayscaleCandidate = local;
+      if (local.reliable) return local;
+    }
+  } catch (error) { console.debug('Grayscale scanner not available:', error); }
+
   const { recognizer, resolveOrientation } = await getRecognizer();
   const result = await recognizer.recognize(source);
-  if (!result) return { placement: null, reliable: false, reason: 'لم يُكتشف إطار رقعة 8×8 في الصورة.' };
-  // For full-browser screenshots, use the neural detector's crop and
-  // re-run the deterministic grayscale piece matcher on that exact board.
+  if (!result) {
+    return grayscaleCandidate ? {
+      ...grayscaleCandidate, reliable: false,
+      reason: 'القطع الظاهرة ليست مؤكدة. راجع الرقعة يدوياً.',
+    } : { placement: null, reliable: false, reason: 'لم يُكتشف إطار رقعة 8×8 في الصورة.' };
+  }
+  let croppedCandidate = null;
   try {
     const cropped = await cropModelBoard(source, result.corners);
     if (cropped) {
       const local = await recognizeGrayscaleBoard(cropped);
-      if (local && validatePlacement(local.placement).ok) return local;
+      if (local && validatePlacement(local.placement).ok) {
+        croppedCandidate = local;
+        if (local.reliable) return local;
+      }
     }
-  } catch (error) {
-    console.debug('Model-cropped grayscale recognition skipped:', error);
-  }
+  } catch (error) { console.debug('Model crop scanner not available:', error); }
+
   const oriented = resolveOrientation(result.placement);
   const placement = oriented.placement;
   const validation = validatePlacement(placement);
-  return {
+  const scanned = {
     placement: validation.ok ? placement : null,
     reliable: Boolean(result.reliable && result.plausible && validation.ok),
-    reason: validation.reason || (!result.reliable || !result.plausible ?
-      'بعض القطع غير مؤكدة، لن نعتمد النتيجة تلقائياً.' : ''),
+    reason: validation.reason || (!result.reliable || !result.plausible
+      ? 'بعض القطع غير مؤكدة، ولن نعتمد النتيجة تلقائياً.' : ''),
     meanConfidence: result.meanConfidence,
     minConfidence: result.minConfidence,
     orientation: oriented.orientation,
     method: 'onnx-vision',
   };
+
+  const competing = croppedCandidate || grayscaleCandidate;
+  if (competing && competing.placement !== scanned.placement) {
+    // Two detectors disagree on the same board: request a visual review
+    // rather than trusting a misleading neural-network confidence score.
+    return {
+      ...((competing.meanError < 34) ? competing : scanned),
+      reliable: false,
+      reason: 'التعرّف البصري أعطى نتائج متعارضة. راجع القطع أو حدّد إطار الرقعة بالسحب قبل التقييم.',
+    };
+  }
+  return scanned;
 }
