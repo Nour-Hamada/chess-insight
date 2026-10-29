@@ -34,5 +34,5 @@ test('rejects bishop explosion from the former overlay-detection heuristic', () 
 });
 test('permits a real promoted piece only if a pawn has disappeared', () => {
   assert.equal(validatePlacement('4k3/8/8/8/8/8/PPPPPPP1/RNBQKBBR').ok, true);
-  assert.equal(validatePlacement('4k3/pppppppp/8/8/8/8/8/RNBQKBBR').ok, false);
+  assert.equal(validatePlacement('4k3/8/8/8/8/8/PPPPPPPP/RNBQKBBR').ok, false);
 });
