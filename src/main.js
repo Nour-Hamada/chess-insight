@@ -359,6 +359,7 @@ function renderManualSummary() {
 }
 
 function requestManualEvaluation() {
+  status('جارٍ تقييم الوضعية الحالية…', 'info');
   manualEvalVersion++;
   selectedSquare = null;
   manualEvaluation = null;
