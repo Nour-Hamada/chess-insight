@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111419" />
+  <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
+  <title>Chess Insight v2 — تقرير مباراتك المجاني</title>
+  <script type="module" crossorigin src="./assets/index-DbgenK_u.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BHS8E8xz.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-mark" aria-hidden="true">♞</div>
+        <div class="logo-text">
+          <strong>CHESS<span class="logo-accent">INSIGHT v2</span></strong>
+          <span class="logo-sub">استوديو تحليل المباريات</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button id="open-screenshot-btn" class="btn btn-secondary header-btn highlight-btn" type="button" title="لصق أو رفع سكرين شوت رقعة الشطرنج">
+          <span>📷</span> لصق سكرين شوت
+        </button>
+        <button id="manual-toggle" class="btn btn-secondary header-btn" type="button" aria-pressed="false">♟ تحليل يدوي</button>
+        <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
+          <span>📋</span> أدخل PGN
+        </button>
+        <label class="btn btn-secondary header-btn upload-label" for="pgn-file" title="رفع ملف PGN">
+          <span>↥</span> رفع ملف
+        </label>
+        <input id="pgn-file" type="file" accept=".pgn,text/plain" hidden />
+        <div class="engine-badge">
+          <span class="live-dot"></span>
+          <span>STOCKFISH 19</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace (Desktop Side-by-Side) -->
+    <main class="workspace-grid">
+      <!-- Board Column -->
+      <section class="board-column panel" aria-label="رقعة الشطرنج">
+        <!-- Player Black Bar -->
+        <div class="player-bar player-black">
+          <div class="player-avatar black">♟</div>
+          <div class="player-meta">
+            <strong id="black-name">الأسود</strong>
+            <small id="black-elo">BLACK</small>
+          </div>
+          <span id="black-mini-score" class="mini-score">—</span>
+        </div>
+
+        <!-- Chessboard with Left Evaluation Bar (Chess.com Style) -->
+        <div class="board-layout">
+          <div class="eval-bar-wrapper" id="eval-bar-wrapper" title="شريط تقييم المحرك (Evaluation Bar)">
+            <div class="eval-bar-score" id="eval-bar-score">0.0</div>
+            <div class="eval-bar-track">
+              <div class="eval-bar-fill" id="eval-bar-fill"></div>
+            </div>
+          </div>
+          <div class="board-wrapper">
+            <div id="board" class="chessboard" role="img" aria-label="رقعة الشطرنج"></div>
+          </div>
+        </div>
+
+        <!-- Player White Bar -->
+        <div class="player-bar player-white">
+          <div class="player-avatar white">♙</div>
+          <div class="player-meta">
+            <strong id="white-name">الأبيض</strong>
+            <small id="white-elo">WHITE</small>
+          </div>
+          <span id="white-mini-score" class="mini-score">—</span>
+        </div>
+
+        <!-- Board Toolbar Controls -->
+        <div class="board-toolbar">
+          <div class="board-nav-buttons">
+            <button id="first-btn" class="icon-nav-btn" aria-label="أول نقلة" title="البداية (Home)">⏮</button>
+            <button id="prev-btn" class="icon-nav-btn" aria-label="النقلة السابقة" title="السابق (سهم يمين)">◀</button>
+            <span id="move-counter" class="move-counter">0 / 0</span>
+            <button id="next-btn" class="icon-nav-btn" aria-label="النقلة التالية" title="التالي (سهم يسار)">▶</button>
+            <button id="last-btn" class="icon-nav-btn" aria-label="آخر نقلة" title="النهاية (End)">⏭</button>
+          </div>
+          <button id="flip-btn" class="icon-nav-btn flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button>
+          <button id="sound-toggle" class="icon-nav-btn sound-toggle" type="button" aria-label="إيقاف صوت النقلات" aria-pressed="true" title="إيقاف صوت النقلات">🔊</button>
+          <button id="hint-btn" class="btn btn-hint" type="button" title="احسب أو أظهر أفضل نقلة لهذه الوضعية">
+            <span class="hint-icon">💡</span> أفضل نقلة
+          </button>
+        </div>
+
+        <!-- Current Move Banner & Best Move Highlight -->
+        <div id="move-description" class="move-status-banner">بداية المباراة</div>
+        <div id="hint-banner" class="hint-status-banner" hidden></div>
+      </section>
+
+      <!-- Sidebar Column (Moves List + Review) -->
+      <aside class="sidebar-column panel" aria-label="لوحة التحليل والنقلات">
+        <h2 class="review-title"><span aria-hidden="true">★</span> مراجعة المباراة</h2>
+        <section id="manual-panel" class="manual-panel" aria-label="تحليل الوضعية يدويًا" hidden>
+          <div class="manual-eval-card" aria-live="polite">
+            <span class="manual-kicker">تقييم الوضعية الحالية</span>
+            <div class="manual-eval-line"><strong id="manual-leader">جارٍ تقييم الوضعية…</strong><b id="manual-score" dir="ltr">…</b></div>
+            <p id="manual-turn">دور الأبيض</p>
+            <small>التقييم الرقمي من منظور الأبيض؛ الموجب للأبيض والسالب للأسود.</small>
+          </div>
+          <div class="manual-actions">
+            <button id="manual-new" class="btn btn-secondary" type="button">بداية جديدة</button>
+            <button id="manual-exit" class="btn btn-secondary" type="button">العودة للمباراة</button>
+          </div>
+          <p class="manual-instructions">انقر على قطعة ثم مربع الوصول، أو اسحبها. يمكنك أيضًا كتابة النقلة أدناه.</p>
+          <form id="manual-move-form" class="manual-move-form">
+            <label for="manual-move-input">إدخال نقلة</label>
+            <div><input id="manual-move-input" dir="ltr" autocomplete="off" spellcheck="false" placeholder="e4 / Nf3 / e2e4" /><button class="btn btn-primary" type="submit">إضافة</button></div>
+          </form>
+          <p id="manual-error" class="manual-error" role="alert"></p>
+        </section>
+        <!-- Accuracy Cards -->
+        <div class="accuracy-summary">
+          <div class="acc-box white-acc-box">
+            <div class="acc-box-top">
+              <span class="player-mini-avatar white">♙</span>
+              <span class="acc-box-name" id="report-white-name">الأبيض</span>
+            </div>
+            <div class="acc-box-score">
+              <span class="acc-num" id="white-accuracy">—<small>%</small></span>
+              <span class="acc-lbl">الدقة</span>
+            </div>
+            <div class="acc-bar-track"><div id="white-meter" class="acc-bar-fill"></div></div>
+            <div class="acc-sub" id="white-accuracy-sub">لم يُحلّل بعد</div>
+          </div>
+
+          <div class="acc-box black-acc-box">
+            <div class="acc-box-top">
+              <span class="player-mini-avatar black">♟</span>
+              <span class="acc-box-name" id="report-black-name">الأسود</span>
+            </div>
+            <div class="acc-box-score">
+              <span class="acc-num" id="black-accuracy">—<small>%</small></span>
+              <span class="acc-lbl">الدقة</span>
+            </div>
+            <div class="acc-bar-track"><div id="black-meter" class="acc-bar-fill"></div></div>
+            <div class="acc-sub" id="black-accuracy-sub">لم يُحلّل بعد</div>
+          </div>
+        </div>
+
+        <!-- Evaluation Chart -->
+        <div class="chart-section">
+          <div class="chart-header">
+            <h4>منحنى الأفضلية</h4>
+            <span class="chart-tip">انقر للانتقال</span>
+          </div>
+          <div id="chart-wrap" class="chart-wrap">
+            <div class="chart-empty"><span>↗</span> سيظهر المنحنى بعد التحليل</div>
+          </div>
+        </div>
+
+        <!-- Tabs: Moves List vs Review -->
+        <div class="sidebar-tabs" role="tablist">
+          <button id="tab-review-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">
+            <span>📊</span> تصنيف النقلات والتقرير
+          </button>
+          <button id="tab-moves-btn" class="tab-btn" type="button" role="tab" aria-selected="false">
+            <span>♟️</span> سجل الحركات
+          </button>
+        </div>
+
+        <!-- Tab Content Area -->
+        <div class="tab-content-container">
+          <!-- Review Tab Pane (Coach & Stats Breakdown like Chess.com Game Review) -->
+          <div id="pane-review" class="tab-pane active" role="tabpanel">
+            <div class="coach-card">
+              <div class="coach-avatar" aria-hidden="true">
+                <div>♟</div><span>✦</span>
+              </div>
+              <div class="coach-bubble" id="coach-bubble">
+                اضغط على «ابدأ التحليل المجاني» وسيقوم Stockfish بفحص النقلات وتحديد الأخطاء وتصنيف الحركات بدقة.
+              </div>
+            </div>
+
+            <div class="stats-section">
+              <div class="stat-head">
+                <span>الأبيض</span>
+                <span>نوع وتصنيف النقلة</span>
+                <span>الأسود</span>
+              </div>
+              <div id="stats" class="stats"></div>
+            </div>
+            <div class="method-note">
+              <span aria-hidden="true">ⓘ</span> تصنيفات تقديرية بحسب تغيّر فرص الفوز؛ قد تختلف عن Chess.com. «عبقرية» تتطلب تضحية، و«رائعة» تتطلب تفوّقًا واضحًا على البدائل.
+            </div>
+          </div>
+
+          <!-- Moves Tab Pane (Chess.com Style Table) -->
+          <div id="pane-moves" class="tab-pane" role="tabpanel" hidden>
+            <div class="moves-header-bar">
+              <span class="col-num">#</span>
+              <span class="col-white">الأبيض</span>
+              <span class="col-black">الأسود</span>
+            </div>
+            <div id="moves-list" class="chesscom-moves-list">
+              <div class="empty-moves">لنبدأ بإدخال مباراتك.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Footer Controls -->
+        <div class="sidebar-footer">
+          <div class="engine-controls">
+            <div class="engine-depth">
+              <label for="depth-select">العمق</label>
+              <select id="depth-select" aria-label="عمق التحليل">
+                <option value="12">سريع · 12</option>
+                <option value="16" selected>متوازن · 16</option>
+                <option value="20">متعمق · 20</option>
+              </select>
+            </div>
+            <button class="btn btn-primary analyze-btn" id="analyze-btn" type="button">
+              ⚡ ابدأ التحليل المجاني
+            </button>
+            <button class="btn btn-danger" id="cancel-btn" type="button" hidden>إيقاف</button>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-wrap" id="progress-wrap" hidden>
+            <div class="progress-label">
+              <span id="progress-text">جارٍ التحليل…</span>
+              <span id="progress-value">0%</span>
+            </div>
+            <div class="progress-track"><div id="progress-bar"></div></div>
+          </div>
+
+          <!-- Status Message -->
+          <div id="status" class="status-msg" role="status" aria-live="polite">
+            مباراة تجريبية جاهزة — اضغط «ابدأ التحليل».
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <dialog id="promotion-dialog" class="promotion-dialog" aria-labelledby="promotion-title">
+    <h3 id="promotion-title">اختر قطعة الترقية</h3>
+    <div id="promotion-options" class="promotion-options"></div>
+    <button id="promotion-cancel" class="btn btn-secondary" type="button">إلغاء</button>
+  </dialog>
+
+  
+
+    <!-- PGN Modal Dialog -->
+  <dialog id="pgn-modal" class="pgn-dialog">
+    <div class="pgn-modal-content panel">
+      <div class="pgn-modal-head">
+        <div class="modal-title-wrap">
+          <span class="kicker">إدخال المباراة</span>
+          <h3>الصق نص PGN أو ارفع ملفاً</h3>
+        </div>
+        <button id="close-pgn-btn" class="close-modal-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="pgn-modal-body">
+        <textarea id="pgn-text" dir="ltr" spellcheck="false" aria-label="نص PGN" placeholder='[White "Player 1"]&#10;[Black "Player 2"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 ...'></textarea>
+        <div id="input-hint" class="modal-input-hint">يمكنك نسخ مباراة من Chess.com أو Lichess ولصقها هنا.</div>
+      </div>
+
+      <div class="pgn-modal-footer">
+        <button id="demo-btn" class="btn btn-ghost" type="button">جرّب مثالاً جاهزاً</button>
+        <div class="modal-main-actions">
+          <label class="btn btn-secondary upload-label" for="pgn-modal-file">
+            <span>↥</span> رفع ملف PGN
+          </label>
+          <input id="pgn-modal-file" type="file" accept=".pgn,text/plain" hidden />
+          <button id="load-btn" class="btn btn-primary" type="button">
+            تحميل وعرض المباراة ←
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Screenshot / Image to FEN Modal -->
+  <dialog id="screenshot-modal" class="pgn-dialog screenshot-dialog" aria-labelledby="screenshot-modal-title">
+    <div class="pgn-modal-content panel screenshot-modal-content">
+      <div class="pgn-modal-head">
+        <div class="modal-title-wrap">
+          <span class="kicker">التعرّف البصري بالذكاء الاصطناعي</span>
+          <h3 id="screenshot-modal-title">📷 استخراج وتقييم الوضعية من سكرين شوت</h3>
+        </div>
+        <button id="close-screenshot-btn" class="close-modal-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="pgn-modal-body screenshot-modal-body">
+        <!-- Dropzone / Empty State -->
+        <div id="screenshot-dropzone" class="screenshot-dropzone" tabindex="0">
+          <div class="dropzone-icon">📷</div>
+          <div class="dropzone-title">الصق لقطة الشاشة هنا مباشرة <strong>(Ctrl + V)</strong></div>
+          <p class="dropzone-sub">أو اسحب وأفلت صورة، أو انقر للاختيار من جهازك</p>
+          <div class="dropzone-badges">
+            <span class="badge">Chess.com</span>
+            <span class="badge">Lichess</span>
+            <span class="badge">لقطات شاشة رقمية</span>
+          </div>
+          <input id="screenshot-file-input" type="file" accept="image/*" hidden />
+        </div>
+
+        <!-- Preview Area (When Image Loaded) -->
+        <div id="screenshot-preview-area" class="screenshot-preview-area" hidden>
+          <div class="screenshot-split-grid">
+            <!-- Left: Pasted Image -->
+            <div class="screenshot-image-col">
+              <span class="col-title">الصورة الملتقطة</span>
+              <div class="screenshot-img-wrap">
+                <img id="screenshot-img-preview" alt="معاينة السكرين شوت" />
+              </div>
+            </div>
+
+            <!-- Right: Detected Board -->
+            <div class="screenshot-board-col">
+              <span class="col-title">الرقعة المستخرجة (انقر لتعديل أي قطعة)</span>
+              <div class="mini-board-wrap">
+                <div id="screenshot-mini-board" class="screenshot-mini-board" aria-label="الرقعة المستخرجة"></div>
+              </div>
+
+              <!-- Quick Piece Palette for Correction -->
+              <div id="screenshot-piece-palette" class="screenshot-piece-palette" hidden>
+                <div class="palette-row">
+                  <button type="button" data-piece="P" title="بيدق أبيض">♙</button>
+                  <button type="button" data-piece="N" title="حصان أبيض">♘</button>
+                  <button type="button" data-piece="B" title="فيل أبيض">♗</button>
+                  <button type="button" data-piece="R" title="رخ أبيض">♖</button>
+                  <button type="button" data-piece="Q" title="وزير أبيض">♕</button>
+                  <button type="button" data-piece="K" title="ملك أبيض">♔</button>
+                </div>
+                <div class="palette-row">
+                  <button type="button" data-piece="p" title="بيدق أسود">♟</button>
+                  <button type="button" data-piece="n" title="حصان أسود">♞</button>
+                  <button type="button" data-piece="b" title="فيل أسود">♝</button>
+                  <button type="button" data-piece="r" title="رخ أسود">♜</button>
+                  <button type="button" data-piece="q" title="وزير أسود">♛</button>
+                  <button type="button" data-piece="k" title="ملك أسود">♚</button>
+                  <button type="button" data-piece="none" title="تفريغ المربع" class="btn-clear-sq">✕</button>
+                </div>
+              </div>
+
+              <!-- Turn Selector -->
+              <div class="turn-select-wrap">
+                <span class="turn-label">صاحب الدور:</span>
+                <div class="turn-toggle-group">
+                  <button id="turn-white-btn" type="button" class="btn-turn active">⚪ دور الأبيض</button>
+                  <button id="turn-black-btn" type="button" class="btn-turn">⚫ دور الأسود</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div id="screenshot-scan-status" class="screenshot-status"></div>
+
+          <!-- FEN Readout -->
+          <div class="screenshot-fen-row">
+            <label for="screenshot-fen-input">رمز FEN للوضعية:</label>
+            <input id="screenshot-fen-input" type="text" dir="ltr" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+
+      <div class="pgn-modal-footer screenshot-modal-footer">
+        <button id="screenshot-reset-btn" class="btn btn-ghost" type="button">صورة أخرى ↺</button>
+        <div class="modal-main-actions">
+          <button id="screenshot-evaluate-btn" class="btn btn-primary btn-evaluate-action" type="button" disabled>
+            🚀 تقييم الوضعية فوراً بمحرك Stockfish 19
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+</body>
+</html>
+
+
