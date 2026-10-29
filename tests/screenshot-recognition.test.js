@@ -24,3 +24,15 @@ test('rejects impossible pawn ranks and oversized armies', () => {
 test('rejects mutually adjacent kings', () => {
   assert.equal(validatePlacement('8/8/8/8/8/4k3/4K3/8').ok, false);
 });
+
+test('accepts the actual position from the regression screenshot', () => {
+  const placement = 'rnb1k1nr/3pb1pp/p1p5/1p2p3/4P3/2N1B3/PPP1QPPP/2KR1B1R';
+  assert.equal(validatePlacement(placement).ok, true);
+});
+test('rejects bishop explosion from the former overlay-detection heuristic', () => {
+  assert.equal(validatePlacement('rbbqkbnr/pppppppp/b1b1b1b1/8/8/8/PPPPPPPP/RNBQKBNR').ok, false);
+});
+test('permits a real promoted piece only if a pawn has disappeared', () => {
+  assert.equal(validatePlacement('4k3/8/8/8/8/8/PPPPPPP1/RNBQKBBR').ok, true);
+  assert.equal(validatePlacement('4k3/pppppppp/8/8/8/8/8/RNBQKBBR').ok, false);
+});
