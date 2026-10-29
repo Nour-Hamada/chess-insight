@@ -312,7 +312,14 @@
             <div class="screenshot-image-col">
               <span class="col-title">الصورة الملتقطة</span>
               <div class="screenshot-img-wrap">
-                <img id="screenshot-img-preview" alt="معاينة السكرين شوت" />
+                <div class="screenshot-image-stage">
+                  <img id="screenshot-img-preview" alt="معاينة السكرين شوت" draggable="false" />
+                  <div id="screenshot-crop-overlay" class="screenshot-crop-overlay" hidden></div>
+                </div>
+              </div>
+              <div class="screenshot-crop-help">
+                <span>✂️ اسحب بالماوس حول الرقعة المربعة لإعادة قراءتها بدقة.</span>
+                <button id="screenshot-rescan-original" class="btn-subtle-tool" type="button">إعادة فحص الصورة الأصلية ↻</button>
               </div>
             </div>
 
@@ -389,6 +396,11 @@
 
           <!-- Status Banner -->
           <div id="screenshot-scan-status" class="screenshot-status"></div>
+
+          <label id="screenshot-review-confirm" class="screenshot-review-confirm" hidden>
+            <input id="screenshot-review-toggle" type="checkbox" />
+            <span>راجعت مواقع القطع وتأكدت منها يدوياً قبل التحليل.</span>
+          </label>
 
           <!-- FEN Readout -->
           <div class="screenshot-fen-row">
