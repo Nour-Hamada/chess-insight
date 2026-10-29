@@ -53,14 +53,58 @@ function exchangeGain(board, square, depth = 0) {
   return best;
 }
 const toUciObject = move => ({ from: move.from, to: move.to, promotion: move.promotion });
+const PIECES_AT_RISK = ['n', 'b', 'r', 'q'];
+// The most material the side to move could win outright on any knight, bishop,
+// rook or queen of the player who just moved. This looks at EVERY piece, not
+// only the one that moved, so a quiet or discovered move that leaves another
+// piece en prise is recognised too.
+export function hangingMaterial(fen) {
+  let board;
+  try { board = new Chess(fen); } catch { return 0; }
+  if (board.isGameOver()) return 0;
+  const victim = board.turn() === 'w' ? 'b' : 'w';
+  let worst = 0;
+  for (const row of board.board()) {
+    for (const cell of row) {
+      if (!cell || cell.color !== victim || !PIECES_AT_RISK.includes(cell.type)) continue;
+      worst = Math.max(worst, exchangeGain(board, cell.square));
+    }
+  }
+  return worst;
+}
+
+// What the opponent could already grab BEFORE the move (same position, their turn),
+// so a piece that was simply already attacked is not counted as a new sacrifice.
+function hangingBefore(move) {
+  const parts = move.before.split(' ');
+  parts[1] = parts[1] === 'w' ? 'b' : 'w';
+  parts[3] = '-';
+  return hangingMaterial(parts.join(' '));
+}
+
+// A sacrifice: after the move the opponent can take a piece for free (or for far
+// less than it is worth) and that offer is new, not material we merely recaptured.
 export function hasSoundSacrifice(move) {
-  if (!move || !['n', 'b', 'r', 'q'].includes(move.piece) || move.promotion) return false;
-  const board = new Chess(move.after);
-  // Immediate mate is already decisive; a last-move capture is not proof of sacrifice.
-  if (board.isGameOver()) return false;
-  const offeredMaterial = exchangeGain(board, move.to);
-  const gainedMaterial = VALUE[move.captured] || 0;
-  return offeredMaterial - gainedMaterial >= 150;
+  if (!move || move.promotion) return false;
+  const offered = hangingMaterial(move.after);
+  if (!offered) return false;
+  const gained = VALUE[move.captured] || 0;
+  return offered - gained >= 150 && offered > hangingBefore(move);
+}
+
+// Brilliant = a strong idea that leaves a piece to be taken, while we stay better.
+//  * the move is the engine's best (or within one win-percent of it),
+//  * the opponent can win a piece for free on any of our pieces,
+//  * we are not worse afterwards,
+//  * and we were not already decided: either we were at most clearly better, or the
+//    sacrifice beats the best non-sacrificial alternative by 1.5+ pawns (it raises
+//    our advantage), in which case it is still brilliant even when already ahead.
+function isBrilliant({ move, best, played, second, top, beforeWin, afterWin, winLoss, mover }) {
+  if (!(top || winLoss <= 1) || afterWin < 50 || beforeWin >= 95) return false;
+  if (!hasSoundSacrifice(move)) return false;
+  if (beforeWin <= 75) return true;
+  const raises = top && second && mover * (best.cpWhite - second.cpWhite) >= 150;
+  return Boolean(raises);
 }
 
 // Our transparent approximation; these are not Chess.com's proprietary labels.
@@ -76,7 +120,7 @@ export function classifyMove({ move, best, played, second = null, previous = nul
   const cpLoss = top ? 0 : Math.round(Math.max(0, mover * (best.cpWhite - played.cpWhite)));
   let category;
   if (isBookMove(move.before, uci) && winLoss < 2) category = 'book';
-  else if (top && beforeWin <= 75 && afterWin >= 50 && hasSoundSacrifice(move)) category = 'brilliant';
+  else if (isBrilliant({ move, best, played, second, top, beforeWin, afterWin, winLoss, mover })) category = 'brilliant';
   else {
     const secondWin = second ? winChance(second.cpWhite * mover) : null;
     const onlyGoodMove = top && secondWin !== null && beforeWin - secondWin >= 15
