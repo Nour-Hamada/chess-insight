@@ -1660,10 +1660,143 @@ button, select { line-height: 1.5; }
   z-index: 2;
 }
 
-.mini-sq svg {
+.mini-sq svg,
+.mini-piece-svg,
+.mini-piece-svg svg {
   width: 88%;
   height: 88%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+}
+
+/* Mini board rank & file labels */
+.mini-sq .mini-rank-label,
+.mini-sq .mini-file-label {
+  position: absolute;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.mini-sq .mini-rank-label {
+  top: 2px;
+  left: 2px;
+}
+
+.mini-sq .mini-file-label {
+  bottom: 2px;
+  right: 2px;
+}
+
+.mini-sq.light .mini-rank-label,
+.mini-sq.light .mini-file-label {
+  color: #769656;
+}
+
+.mini-sq.dark .mini-rank-label,
+.mini-sq.dark .mini-file-label {
+  color: #eeeed2;
+}
+
+/* Transformation Toolbar */
+.board-transform-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.btn-subtle-tool {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #d1ded8;
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-subtle-tool:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.btn-subtle-tool.danger:hover {
+  background: rgba(240, 80, 80, 0.2);
+  border-color: rgba(240, 80, 80, 0.4);
+  color: #ff9999;
+}
+
+/* Permanent Piece Brush Bar */
+.editor-piece-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-top: 2px;
+}
+
+.editor-pieces-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tool-piece {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.tool-piece:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.tool-piece.active {
+  background: rgba(100, 207, 60, 0.3);
+  border-color: #64cf3c;
+  box-shadow: 0 0 8px rgba(100, 207, 60, 0.4);
+}
+
+.tool-piece.tool-erase {
+  color: #ff8888;
+}
+
+.tool-piece.tool-erase.active {
+  background: rgba(240, 60, 60, 0.3);
+  border-color: #f05050;
+  box-shadow: 0 0 8px rgba(240, 60, 60, 0.4);
+}
+
+.tool-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
 }
 
 /* Quick Piece Palette */

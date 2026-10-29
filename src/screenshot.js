@@ -18,6 +18,16 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   const resetBtn = document.getElementById('screenshot-reset-btn');
   const piecePalette = document.getElementById('screenshot-piece-palette');
 
+  // Transformation buttons
+  const btnRotate180 = document.getElementById('btn-rotate-180');
+  const btnSwapColors = document.getElementById('btn-swap-colors');
+  const btnFlipV = document.getElementById('btn-flip-v');
+  const btnFlipH = document.getElementById('btn-flip-h');
+  const btnClearBoard = document.getElementById('btn-clear-board');
+
+  // Brush piece buttons
+  const brushButtons = document.querySelectorAll('.tool-piece');
+
   if (!modal) return;
 
   // 8x8 piece grid: null or { color: 'w'|'b', type: 'p'|'n'|'b'|'r'|'q'|'k' }
@@ -27,6 +37,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   let currentImageBlob = null;
   let currentImageUrl = null;
   let isScanning = false;
+  let currentBrush = 'cursor'; // 'cursor', 'none', or piece char 'P', 'b', etc.
 
   function createInitialGrid() {
     // Default starting board position as a reliable starting point
@@ -70,6 +81,8 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     currentImageBlob = null;
     currentImageUrl = null;
     isScanning = false;
+    currentBrush = 'cursor';
+    updateBrushActiveState();
     dropzone.hidden = false;
     previewArea.hidden = true;
     imgElement.src = '';
@@ -169,6 +182,63 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     updateFenFromGrid();
   }
 
+  // Transformation Tool Buttons
+  btnRotate180?.addEventListener('click', () => {
+    currentGrid = rotateGrid180(currentGrid);
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
+    scanStatus.textContent = '🔄 تم تدوير الرقعة 180° بنجاح.';
+    scanStatus.className = 'screenshot-status';
+  });
+
+  btnSwapColors?.addEventListener('click', () => {
+    currentGrid = swapGridColors(currentGrid);
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
+    scanStatus.textContent = '⚖️ تم تبديل ألوان القطع (الأبيض ⇋ الأسود).';
+    scanStatus.className = 'screenshot-status';
+  });
+
+  btnFlipV?.addEventListener('click', () => {
+    currentGrid = flipGridV(currentGrid);
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
+    scanStatus.textContent = '⇅ تم عكس الصفوف رأسياً.';
+    scanStatus.className = 'screenshot-status';
+  });
+
+  btnFlipH?.addEventListener('click', () => {
+    currentGrid = flipGridH(currentGrid);
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
+    scanStatus.textContent = '⇄ تم عكس الأعمدة أفقياً.';
+    scanStatus.className = 'screenshot-status';
+  });
+
+  btnClearBoard?.addEventListener('click', () => {
+    currentGrid = Array(8).fill(null).map(() => Array(8).fill(null));
+    ensureKingsPresent();
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
+    scanStatus.textContent = '🗑️ تم تفريغ الرقعة. انقر على أي قطعة لوضعها.';
+    scanStatus.className = 'screenshot-status';
+  });
+
+  // Brush piece buttons handling
+  function updateBrushActiveState() {
+    brushButtons.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.brush === currentBrush);
+    });
+  }
+
+  brushButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentBrush = btn.dataset.brush;
+      updateBrushActiveState();
+      closePalette();
+    });
+  });
+
   // FEN manual editing
   fenInput?.addEventListener('input', () => {
     const val = fenInput.value.trim();
@@ -206,6 +276,91 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     onApplyFen(fen, currentImageBlob);
   });
 
+  // Auto-detection of Black perspective (Inverted board in screenshot)
+  function detectAndFixPerspective(grid) {
+    let whiteTop = 0; // rows 0..2
+    let whiteBottom = 0; // rows 5..7
+    let blackTop = 0; // rows 0..2
+    let blackBottom = 0; // rows 5..7
+
+    let whiteKingRow = null;
+    let blackKingRow = null;
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = grid[r][c];
+        if (!p) continue;
+        if (p.color === 'w') {
+          if (r <= 2) whiteTop++;
+          if (r >= 5) whiteBottom++;
+          if (p.type === 'k') whiteKingRow = r;
+        } else if (p.color === 'b') {
+          if (r <= 2) blackTop++;
+          if (r >= 5) blackBottom++;
+          if (p.type === 'k') blackKingRow = r;
+        }
+      }
+    }
+
+    // Strong signature of Black's perspective:
+    // White King is in rows 0-2 (top), or White pieces are at the top and Black at the bottom
+    const whiteAtTop = (whiteKingRow !== null && whiteKingRow <= 2) || (whiteTop > whiteBottom && blackBottom > blackTop);
+    const blackAtBottom = (blackKingRow !== null && blackKingRow >= 5) || (blackBottom > blackTop);
+
+    if (whiteAtTop && blackAtBottom) {
+      return { rotated: true, grid: rotateGrid180(grid) };
+    }
+    return { rotated: false, grid };
+  }
+
+  // Grid Transformation Helpers
+  function rotateGrid180(grid) {
+    let newGrid = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        newGrid[7 - r][7 - c] = grid[r][c] ? { ...grid[r][c] } : null;
+      }
+    }
+    return newGrid;
+  }
+
+  function flipGridV(grid) {
+    let newGrid = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        newGrid[7 - r][c] = grid[r][c] ? { ...grid[r][c] } : null;
+      }
+    }
+    return newGrid;
+  }
+
+  function flipGridH(grid) {
+    let newGrid = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        newGrid[r][7 - c] = grid[r][c] ? { ...grid[r][c] } : null;
+      }
+    }
+    return newGrid;
+  }
+
+  function swapGridColors(grid) {
+    let newGrid = Array(8).fill(null).map(() => Array(8).fill(null));
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        if (grid[r][c]) {
+          newGrid[r][c] = {
+            color: grid[r][c].color === 'w' ? 'b' : 'w',
+            type: grid[r][c].type
+          };
+        } else {
+          newGrid[r][c] = null;
+        }
+      }
+    }
+    return newGrid;
+  }
+
   // Main Image Input Handler
   async function handleImageInput(file) {
     if (!file) return;
@@ -224,7 +379,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     imgElement.src = currentImageUrl;
     imgElement.style.display = 'block';
 
-    scanStatus.textContent = '⏳ جارٍ مسح الرقعة وقراءة القطع…';
+    scanStatus.textContent = '⏳ جارٍ مسح الرقعة وقراءة القطع بالذكاء الاصطناعي…';
     scanStatus.className = 'screenshot-status loading';
 
     try {
@@ -232,10 +387,15 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       const aiFen = await scanWithNeuralApi(file);
       if (aiFen) {
         gridFromPlacement(aiFen.split(/\s+/)[0]);
+        // Auto-fix Black perspective if White is at top
+        const fix = detectAndFixPerspective(currentGrid);
+        currentGrid = fix.grid;
         ensureKingsPresent();
         renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح! يمكنك مراجعة المربعات ثم بدء التقييم.';
+        scanStatus.textContent = fix.rotated
+          ? '🔄 تم استخراج الوضعية وتدويرها 180° تلقائياً (منظور الأسود). راجع القطع ثم اضغط تقييم.'
+          : '✅ تم استخراج الوضعية بنجاح! راجع القطع ثم اضغط تقييم.';
         scanStatus.className = 'screenshot-status success';
         validateSubmit();
         isScanning = false;
@@ -245,11 +405,14 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       // 2. Try fast client-side canvas analysis
       const localResult = await analyzeBoardWithCanvas(currentImageUrl);
       if (localResult && localResult.confidence > 0.6) {
-        currentGrid = localResult.grid;
+        const fix = detectAndFixPerspective(localResult.grid);
+        currentGrid = fix.grid;
         ensureKingsPresent();
         renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '✅ تم التعرّف على الرقعة بنجاح! راجع القطع واضغط تقييم.';
+        scanStatus.textContent = fix.rotated
+          ? '🔄 تم التعرّف على الرقعة وتدويرها 180° تلقائياً. راجع القطع ثم اضغط تقييم.'
+          : '✅ تم التعرّف على الرقعة بنجاح! راجع القطع واضغط تقييم.';
         scanStatus.className = 'screenshot-status success';
         validateSubmit();
         isScanning = false;
@@ -261,7 +424,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       ensureKingsPresent();
       renderMiniBoardFromGrid();
       updateFenFromGrid();
-      scanStatus.textContent = '💡 تم عرض الرقعة التفاعلية بجانب الصورة. يمكنك النقر على أي مربع لتعديل القطعة، ثم تقييم الوضعية بمحرك Stockfish 19.';
+      scanStatus.textContent = '💡 تم عرض الرقعة التفاعلية بجانب الصورة. يمكنك تدوير الرقعة 🔄 أو النقر على أي مربع لتعديل القطعة، ثم تقييم الوضعية.';
       scanStatus.className = 'screenshot-status warning';
       validateSubmit();
     } finally {
@@ -508,21 +671,60 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         sq.className = `mini-sq ${isDark ? 'dark' : 'light'}`;
         sq.dataset.row = r;
         sq.dataset.col = c;
-        const squareName = 'abcdefgh'[c] + (8 - r);
-        sq.title = squareName + ': انقر لتعديل القطعة';
+        const file = 'abcdefgh'[c];
+        const rank = 8 - r;
+        const squareName = `${file}${rank}`;
+        sq.title = `${squareName}: انقر لتعديل القطعة`;
+
+        // Rank number on leftmost column
+        if (c === 0) {
+          const rLabel = document.createElement('span');
+          rLabel.className = 'mini-rank-label';
+          rLabel.textContent = rank;
+          sq.appendChild(rLabel);
+        }
+
+        // File letter on bottom rank
+        if (r === 7) {
+          const fLabel = document.createElement('span');
+          fLabel.className = 'mini-file-label';
+          fLabel.textContent = file;
+          sq.appendChild(fLabel);
+        }
 
         const piece = currentGrid[r][c];
         if (piece) {
-          sq.innerHTML = getPieceSvg(piece.color, piece.type);
+          const svgWrap = document.createElement('div');
+          svgWrap.className = 'mini-piece-svg';
+          svgWrap.innerHTML = getPieceSvg(piece.color, piece.type);
+          sq.appendChild(svgWrap);
         }
 
         sq.addEventListener('click', (e) => {
           e.stopPropagation();
-          openPaletteForSquare(sq, r, c);
+          handleSquareClick(sq, r, c);
         });
 
         miniBoard.appendChild(sq);
       }
+    }
+  }
+
+  // Fast Square Click: applies brush immediately, or opens popup if cursor mode
+  function handleSquareClick(sq, r, c) {
+    if (currentBrush === 'none') {
+      currentGrid[r][c] = null;
+      renderMiniBoardFromGrid();
+      updateFenFromGrid();
+    } else if (currentBrush !== 'cursor') {
+      currentGrid[r][c] = {
+        color: currentBrush === currentBrush.toUpperCase() ? 'w' : 'b',
+        type: currentBrush.toLowerCase()
+      };
+      renderMiniBoardFromGrid();
+      updateFenFromGrid();
+    } else {
+      openPaletteForSquare(sq, r, c);
     }
   }
 
