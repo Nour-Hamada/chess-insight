@@ -239,31 +239,13 @@ function updateSoundControl() {
   button.setAttribute('aria-pressed', String(soundEnabled));
 }
 
-// Original dry wooden-piece sounds, synthesized once and cached locally.
-function createMoveSoundBuffer(context, capture = false) {
-  const duration = capture ? 0.15 : 0.11;
-  const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
-  const samples = buffer.getChannelData(0);
-  let seed = capture ? 9277 : 6173;
-  let smoothNoise = 0;
-  for (let i = 0; i < samples.length; i++) {
-    const t = i / context.sampleRate;
-    seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
-    const noise = (seed >>> 0) / 2147483648 - 1;
-    smoothNoise += 0.3 * (noise - smoothNoise);
-    const attack = Math.min(1, t / 0.0007);
-    const click = (noise - smoothNoise) * Math.exp(-t * 650) * 0.7;
-    const wood = smoothNoise * Math.exp(-t * 95) * 0.8;
-    const body = (Math.sin(2 * Math.PI * 740 * t) * 0.18
-      + Math.sin(2 * Math.PI * 1260 * t) * 0.13
-      + Math.sin(2 * Math.PI * 2130 * t) * 0.08) * Math.exp(-t * 115);
-    // A quieter second contact gives captures a slightly heavier clack.
-    const secondTap = capture && t > 0.025
-      ? smoothNoise * Math.exp(-(t - 0.025) * 160) * 0.32 : 0;
-    samples[i] = Math.tanh((click + wood + body + secondTap) * 1.5) * attack;
-  }
-  return buffer;
-}
+// Real wooden-board recordings by Jeff Final Boss, CC0 (see sounds/CREDITS.txt).
+const recordedAudio = new Map(['move', 'capture'].map(key => [key,
+  fetch(new URL(`./sounds/${key}.mp3`, window.location.href)).then(response => {
+    if (!response.ok) throw new Error('Audio unavailable');
+    return response.arrayBuffer();
+  }).catch(() => null)
+]));
 
 function playMoveSound(capture = false) {
   if (!soundEnabled) return;
@@ -274,21 +256,23 @@ function playMoveSound(capture = false) {
     const now = audioContext.currentTime;
     if (now - lastSoundTime < 0.075) return;
     lastSoundTime = now;
-    const play = () => {
-      if (!soundEnabled || audioContext.state !== 'running') return;
-      const key = capture ? 'capture' : 'move';
-      if (!moveSoundBuffers.has(key)) moveSoundBuffers.set(key, createMoveSoundBuffer(audioContext, capture));
+    const key = capture ? 'capture' : 'move';
+    const ready = audioContext.state === 'suspended' ? audioContext.resume() : Promise.resolve();
+    ready.then(async () => {
+      if (!soundEnabled) return;
+      if (!moveSoundBuffers.has(key)) {
+        moveSoundBuffers.set(key, recordedAudio.get(key).then(bytes => bytes ? audioContext.decodeAudioData(bytes.slice(0)) : null));
+      }
+      const buffer = await moveSoundBuffers.get(key);
+      if (!buffer || !soundEnabled) return;
       const source = audioContext.createBufferSource();
       const volume = audioContext.createGain();
-      source.buffer = moveSoundBuffers.get(key);
-      volume.gain.value = 0.7;
+      source.buffer = buffer; volume.gain.value = 0.7;
       source.connect(volume).connect(audioContext.destination);
       source.onended = () => { source.disconnect(); volume.disconnect(); };
       source.start();
-    };
-    if (audioContext.state === 'suspended') audioContext.resume().then(play).catch(() => {});
-    else play();
-  } catch {} // Audio availability must never block board navigation.
+    }).catch(() => {});
+  } catch {} // A sound must never block navigation.
 }
 
 function enterManualMode(fresh = false) {
@@ -327,7 +311,7 @@ function leaveManualMode() {
 function setManualControls() {
   document.body.classList.toggle('manual-mode', manualMode);
   byId('manual-toggle').setAttribute('aria-pressed', String(manualMode));
-  byId('manual-toggle').textContent = manualMode ? '↩ العودة للمباراة' : '♟ تحليل يدوي';
+  byId('manual-toggle').textContent = manualMode ? '📋 مراجعة المباراة' : '♟ تحليل يدوي';
   byId('manual-panel').hidden = !manualMode;
   byId('analyze-btn').hidden = manualMode || analysisRunning;
   byId('analyze-btn').disabled = manualSearchActive || hintRunning;
@@ -478,6 +462,8 @@ function renderBoard() {
   const focusedSquare = manualMode ? document.activeElement?.closest('.square')?.dataset.square : null;
   grid.replaceChildren();
   const currentFen = manualMode ? manualSession.fen : (game ? game.fens[position] : START_FEN);
+  grid.dataset.fen = currentFen;
+  grid.dataset.orientation = flipped ? 'black' : 'white';
   const displayedPosition = manualMode ? manualSession.cursor : position;
   const displayedMoves = manualMode ? manualSession.moves : (game?.moves || []);
   const manualBoard = manualMode ? manualSession.board() : null;
@@ -549,6 +535,7 @@ function renderBoard() {
       if (svgCode) {
         const pieceWrap = document.createElement('div');
         pieceWrap.className = 'piece-svg-wrap';
+        pieceWrap.dataset.piece = entry.piece.color + entry.piece.type;
         pieceWrap.innerHTML = svgCode;
         if (manualMode && entry.piece.color === manualBoard.turn() && !manualBoard.isGameOver()) {
           pieceWrap.draggable = true;
@@ -1439,4 +1426,20 @@ new ResizeObserver(entries => {
 // Startup initialization
 byId('pgn-text').value = DEMO;
 loadGame(DEMO);
+enterManualMode(true);
+// A position shared by the browser extension opens as an editable board.
+function loadSharedPosition() {
+  try {
+    const sharedFen = new URLSearchParams(location.hash.slice(1)).get('fen');
+    if (!sharedFen) return;
+    const session = new ManualSession(sharedFen);
+    if (!manualMode) enterManualMode(true);
+    if (!manualMode) return status('أوقف التحليل الحالي أولًا لفتح الوضعية المرسلة.', 'error');
+    manualSession = session;
+    selectedSquare = null; currentHint = null;
+    renderBoard(); renderMoves(); requestManualEvaluation();
+  } catch { status('تعذر فتح الوضعية المرسلة: صيغة FEN غير صالحة.', 'error'); }
+}
+loadSharedPosition();
+addEventListener('hashchange', loadSharedPosition);
 

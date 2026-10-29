@@ -1,0 +1,24 @@
+import { build } from 'esbuild';
+import { mkdir, cp, copyFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+const root = process.cwd(), out = path.resolve(process.argv[2] || 'extension-dist/Chess-Insight-Extension');
+await rm(out, { recursive: true, force: true });
+await mkdir(out, { recursive: true });
+for (const file of ['manifest.json', 'offscreen.html', 'popup.html', 'popup.css', 'INSTALL_AR.html']) await copyFile(path.join(root, 'extension', file), path.join(out, file));
+for (const name of ['content', 'background', 'engine-host', 'popup']) await build({ entryPoints: [`extension/src/${name}.js`], bundle: true, outfile: path.join(out, name + '.js'), format: name === 'popup' ? 'esm' : 'iife', target: 'chrome116', minify: false, legalComments: 'eof' });
+// Popup uses top-level await in its bundled module.
+const { readFile } = await import('node:fs/promises');
+await writeFile(path.join(out, 'popup.html'), (await readFile(path.join(out, 'popup.html'), 'utf8')).replace('src="popup.js"', 'type="module" src="popup.js"'));
+await mkdir(path.join(out, 'engine'), { recursive: true });
+for (const suffix of ['js', 'wasm']) await copyFile(`public/engine/stockfish-19-lite-single.${suffix}`, path.join(out, `engine/stockfish-19-lite-single.${suffix}`));
+await mkdir(path.join(out, 'licenses'), { recursive: true });
+await copyFile('node_modules/stockfish/Copying.txt', path.join(out, 'licenses/GPL-3.0.txt'));
+await copyFile('node_modules/chess.js/LICENSE', path.join(out, 'licenses/chess.js-BSD-2-Clause.txt'));
+await writeFile(path.join(out, 'licenses/SOURCES.txt'), `Chess Insight extension 1.0.0 — GPL-3.0-or-later\nProject source: https://github.com/Nour-Hamada/chess-insight/tree/main/extension\nStockfish.js npm 19.0.1, engine 19 lite single-threaded, unmodified.\nCorresponding engine source and build instructions: https://github.com/nmrugg/stockfish.js/tree/v19.0.1\nExact source archive: https://github.com/nmrugg/stockfish.js/archive/refs/tags/v19.0.1.zip\nchess.js 1.4.0: https://github.com/jhlywa/chess.js/tree/v1.4.0\nNo remote executable code, telemetry or external evaluation API.\n`);
+await mkdir(path.join(out, 'source'), { recursive: true });
+await cp('extension', path.join(out, 'source/extension'), { recursive: true });
+await cp('src', path.join(out, 'source/src'), { recursive: true });
+await cp('scripts', path.join(out, 'source/scripts'), { recursive: true });
+await copyFile('package.json', path.join(out, 'source/package.json'));
+await copyFile('package-lock.json', path.join(out, 'source/package-lock.json'));
+console.log(out);

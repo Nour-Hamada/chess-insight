@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Chess Insight — تحليل الرقعة",
+  "description": "يقرأ رقعة الشطرنج تلقائيًا ويعرض أفضل نقلة بسهم أخضر وتقييم الموقف باستخدام Stockfish محليًا.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "116",
+  "permissions": ["offscreen", "storage", "activeTab", "scripting"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "Chess Insight" },
+  "content_scripts": [{
+    "matches": ["https://www.chess.com/*", "https://chess.com/*", "https://lichess.org/*", "https://nour-hamada.github.io/chess-insight/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+  "content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self';" }
+}
