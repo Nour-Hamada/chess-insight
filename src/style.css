@@ -2043,3 +2043,17 @@ button, select { line-height: 1.5; }
   color: #f7d99e;
   border-color: rgba(247, 201, 120, 0.28);
 }
+
+.vision-version {
+  display: inline-block;
+  margin-inline-start: 9px;
+  direction: ltr;
+  font: 700 10px / 1.3 ui-monospace, Consolas, monospace;
+  letter-spacing: .35px;
+  color: #d7ffd0;
+  border: 1px solid rgba(129,182,76,.5);
+  background: rgba(129,182,76,.11);
+  border-radius: 5px;
+  padding: 3px 6px;
+  vertical-align: middle;
+}
