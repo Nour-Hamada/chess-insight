@@ -36,7 +36,7 @@ test('an offered knight is a sacrifice, an equal exchange is not', () => {
   const extra={best:{cpWhite:100,best:toUci(sacrifice)}};
   assert.equal(classify(sacrifice,100,100,extra).category,'brilliant');
   assert.notEqual(classify(sacrifice,100,-100,{best:{cpWhite:-100,best:toUci(sacrifice)}}).category,'brilliant');
-  assert.notEqual(classify(sacrifice,700,700,{best:{cpWhite:700,best:toUci(sacrifice)}}).category,'brilliant');
+  assert.equal(classify(sacrifice,700,700,{best:{cpWhite:700,best:toUci(sacrifice)}}).category,'brilliant');
   const exchange=play('6k1/5bpp/8/8/2B5/8/8/6K1 w - - 0 1','Bxf7+');
   assert.equal(hasSoundSacrifice(exchange),false);
 });
@@ -80,12 +80,31 @@ test('a protected piece or an even trade is not offered for free', () => {
   const protectedMove = play('6k1/8/8/8/8/2N5/1P6/6K1 w - - 0 1', 'Nd5');
   assert.equal(hasSoundSacrifice(protectedMove), false);
 });
-test('an already winning position still earns brilliant when the sacrifice raises the advantage', () => {
+test('an already winning position still earns brilliant when a sound sacrifice is played', () => {
   const sacrifice = play('6k1/5ppp/8/6N1/8/8/8/6K1 w - - 0 1', 'Nxh7');
   const best = { cpWhite: 700, best: toUci(sacrifice) };
   assert.equal(classify(sacrifice, 700, 700, { best, second: { cpWhite: 400 } }).category, 'brilliant');
-  assert.notEqual(classify(sacrifice, 700, 700, { best, second: { cpWhite: 650 } }).category, 'brilliant');
-  assert.notEqual(classify(sacrifice, 1300, 1300, { best: { cpWhite: 1300, best: toUci(sacrifice) }, second: { cpWhite: 100 } }).category, 'brilliant');
+  assert.equal(classify(sacrifice, 700, 700, { best, second: { cpWhite: 650 } }).category, 'brilliant');
+  assert.equal(classify(sacrifice, 1300, 1300, { best: { cpWhite: 1300, best: toUci(sacrifice) }, second: { cpWhite: 100 } }).category, 'brilliant');
+});
+
+test('legendary sacrifices like Morphy Opera Game 10.Nxb5, 13.Rxd7 and 16.Qb8+ earn brilliant', () => {
+  const pgn = '1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8#';
+  const game = new Chess();
+  game.loadPgn(pgn);
+  const moves = game.history({ verbose: true });
+
+  const m10 = moves[18];
+  assert.equal(hasSoundSacrifice(m10), true);
+  assert.equal(classify(m10, 429, 429, { best: { cpWhite: 429, best: toUci(m10) }, second: { cpWhite: 85 } }).category, 'brilliant');
+
+  const m13 = moves[24];
+  assert.equal(hasSoundSacrifice(m13), true);
+  assert.equal(classify(m13, 709, 709, { best: { cpWhite: 709, best: toUci(m13) }, second: { cpWhite: 565 } }).category, 'brilliant');
+
+  const m16 = moves[30];
+  assert.equal(hasSoundSacrifice(m16), true);
+  assert.equal(classify(m16, 9900, 9900, { best: { cpWhite: 9900, best: toUci(m16) }, second: { cpWhite: 242 } }).category, 'brilliant');
 });
 test('a near-best sacrifice (within one win-percent) is still brilliant, a clear drop is not', () => {
   const sacrifice = play('6k1/5ppp/8/6N1/8/8/8/6K1 w - - 0 1', 'Nxh7');

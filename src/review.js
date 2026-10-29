@@ -86,25 +86,49 @@ function hangingBefore(move) {
 // less than it is worth) and that offer is new, not material we merely recaptured.
 export function hasSoundSacrifice(move) {
   if (!move || move.promotion) return false;
-  const offered = hangingMaterial(move.after);
-  if (!offered) return false;
-  const gained = VALUE[move.captured] || 0;
-  return offered - gained >= 150 && offered > hangingBefore(move);
+  let boardAfter;
+  try { boardAfter = new Chess(move.after); } catch { return false; }
+  if (boardAfter.isGameOver()) return false;
+
+  const moverColor = move.color;
+  const opponentColor = moverColor === 'w' ? 'b' : 'w';
+
+  // 1. Direct sacrifice: the moved piece lands on a square where opponent can capture it for profit
+  if (PIECES_AT_RISK.includes(move.piece)) {
+    const directGain = exchangeGain(boardAfter, move.to);
+    const gained = VALUE[move.captured] || 0;
+    const netLoss = VALUE[move.piece] - gained;
+    if (directGain >= 100 && netLoss >= 100) return true;
+  }
+
+  // 2. Indirect sacrifice: another piece left hanging that was not hanging before
+  const parts = move.before.split(' ');
+  parts[1] = opponentColor;
+  parts[3] = '-';
+  let boardBeforeOpp = null;
+  try { boardBeforeOpp = new Chess(parts.join(' ')); } catch {}
+
+  for (const row of boardAfter.board()) {
+    for (const cell of row) {
+      if (!cell || cell.color !== moverColor || !PIECES_AT_RISK.includes(cell.type)) continue;
+      if (cell.square === move.to) continue;
+      const gainAfter = exchangeGain(boardAfter, cell.square);
+      if (gainAfter >= 150) {
+        const gainBefore = boardBeforeOpp ? exchangeGain(boardBeforeOpp, cell.square) : 0;
+        if (gainAfter - gainBefore >= 100) return true;
+      }
+    }
+  }
+  return false;
 }
 
 // Brilliant = a strong idea that leaves a piece to be taken, while we stay better.
 //  * the move is the engine's best (or within one win-percent of it),
-//  * the opponent can win a piece for free on any of our pieces,
-//  * we are not worse afterwards,
-//  * and we were not already decided: either we were at most clearly better, or the
-//    sacrifice beats the best non-sacrificial alternative by 1.5+ pawns (it raises
-//    our advantage), in which case it is still brilliant even when already ahead.
+//  * a genuine piece sacrifice is made (direct or indirect),
+//  * we remain winning or maintaining an advantage afterwards (afterWin >= 50).
 function isBrilliant({ move, best, played, second, top, beforeWin, afterWin, winLoss, mover }) {
-  if (!(top || winLoss <= 1) || afterWin < 50 || beforeWin >= 95) return false;
-  if (!hasSoundSacrifice(move)) return false;
-  if (beforeWin <= 75) return true;
-  const raises = top && second && mover * (best.cpWhite - second.cpWhite) >= 150;
-  return Boolean(raises);
+  if (!(top || winLoss <= 1) || afterWin < 50) return false;
+  return hasSoundSacrifice(move);
 }
 
 // Our transparent approximation; these are not Chess.com's proprietary labels.

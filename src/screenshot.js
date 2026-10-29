@@ -21,8 +21,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   const resetBtn = document.getElementById('screenshot-reset-btn');
   const piecePalette = document.getElementById('screenshot-piece-palette');
   const cropOverlay = document.getElementById('screenshot-crop-overlay');
-  const reviewControl = document.getElementById('screenshot-review-confirm');
-  const reviewToggle = document.getElementById('screenshot-review-toggle');
   const rescanOriginalBtn = document.getElementById('screenshot-rescan-original');
 
   // Transformation buttons
@@ -45,25 +43,11 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   let currentImageUrl = null;
   let isScanning = false;
   let scanGeneration = 0;
-  let reviewRequired = false;
-  let reviewApproved = false;
   let cropStart = null;
   let currentBrush = 'cursor'; // 'cursor', 'none', or piece char 'P', 'b', etc.
 
   const blankGrid = () => Array.from({ length: 8 }, () => Array(8).fill(null));
   
-  function setReviewRequired(required) {
-    reviewRequired = required;
-    reviewApproved = false;
-    if (reviewControl) reviewControl.hidden = !required;
-    if (reviewToggle) reviewToggle.checked = false;
-    validateSubmit();
-  }
-
-  reviewToggle?.addEventListener('change', () => {
-    reviewApproved = Boolean(reviewToggle.checked);
-    validateSubmit();
-  });
 
   function createInitialGrid() {
     // Default starting board position as a reliable starting point
@@ -104,7 +88,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     scanGeneration++; // Invalidates a previous asynchronous recognition attempt.
     currentGrid = createInitialGrid();
     clearTurnChoice();
-    setReviewRequired(false);
     activeSquare = null;
     currentImageBlob = null;
     currentImageUrl = null;
@@ -338,7 +321,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   btnClearBoard?.addEventListener('click', () => {
     currentGrid = Array(8).fill(null).map(() => Array(8).fill(null));
-    setReviewRequired(true);
     renderMiniBoardFromGrid();
     updateFenFromGrid();
     scanStatus.textContent = '🗑️ تم تفريغ الرقعة. يمكنك ختم القطع بالنقر عليها.';
@@ -372,7 +354,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       }
       if (!validatePlacement(parts[0]).ok) return;
       gridFromPlacement(parts[0]);
-      setReviewRequired(false); // A FEN typed by the user is an explicit edit.
       renderMiniBoardFromGrid();
       validateSubmit();
     } catch {}
@@ -454,7 +435,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     currentImageBlob = file;
     currentGrid = blankGrid();
     clearTurnChoice();
-    setReviewRequired(true);
     renderMiniBoardFromGrid();
     updateFenFromGrid();
     dropzone.hidden = true;
@@ -483,23 +463,13 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       if (sequence !== scanGeneration) return;
       if (result.placement) {
         gridFromPlacement(result.placement);
-        setReviewRequired(!result.reliable);
-        renderMiniBoardFromGrid();
+            renderMiniBoardFromGrid();
         updateFenFromGrid();
-        if (result.reliable) {
-          scanStatus.textContent = result.method === 'chesscom-gray-templates'
-            ? '✅ VISION 3.1 — تمت مطابقة أشكال القطع الرمادية مع الرقعة بنجاح. راجع صاحب الدور قبل التقييم.'
-            : '✅ VISION 3.1 — تعرّف بصري ناجح مع فحص قانونية الوضعية. راجع صاحب الدور قبل التقييم.';
-          scanStatus.className = 'screenshot-status success';
-        } else {
-          scanStatus.textContent = '⚠️ ' + (result.reason || 'التعرّف غير مؤكد.') +
-            ' صحح القطع ثم فعّل مربع تأكيد المراجعة، أو اسحب حول الرقعة في الصورة لإعادة القراءة.';
-          scanStatus.className = 'screenshot-status warning';
-        }
+        scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح! حدد صاحب الدور واضغط تقييم.';
+        scanStatus.className = 'screenshot-status success';
       } else {
         currentGrid = blankGrid(); // Never display the starting board as a detected result.
-        setReviewRequired(true);
-        renderMiniBoardFromGrid();
+            renderMiniBoardFromGrid();
         updateFenFromGrid();
         scanStatus.textContent = '⚠️ ' + (result.reason || 'تعذر التعرّف بشكل موثوق.') +
           ' اسحب مربعاً يحيط بالرقعة في الصورة لإعادة الفحص، أو أدخل القطع يدوياً.';
@@ -508,8 +478,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     } catch (error) {
       if (sequence !== scanGeneration) return;
       currentGrid = blankGrid();
-      setReviewRequired(true);
-      renderMiniBoardFromGrid();
+        renderMiniBoardFromGrid();
       updateFenFromGrid();
       scanStatus.textContent = '⚠️ تعذر تحميل نموذج التعرف البصري. تأكد من اتصال الإنترنت، ثم اضغط «إعادة فحص الأصل» أو أدخل القطع يدوياً.';
       scanStatus.className = 'screenshot-status warning';
@@ -581,7 +550,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   function validateSubmit() {
     const fen = getNormalizedLegalFen();
-    const allowed = Boolean(fen && !isScanning && (!reviewRequired || reviewApproved));
+    const allowed = Boolean(fen && !isScanning);
     if (evaluateBtn) {
       evaluateBtn.disabled = !allowed;
       evaluateBtn.classList.toggle('pulse-ready', allowed);
@@ -642,16 +611,14 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   function handleSquareClick(sq, r, c) {
     if (currentBrush === 'none') {
       currentGrid[r][c] = null;
-      setReviewRequired(true);
-      renderMiniBoardFromGrid();
+        renderMiniBoardFromGrid();
       updateFenFromGrid();
     } else if (currentBrush !== 'cursor') {
       currentGrid[r][c] = {
         color: currentBrush === currentBrush.toUpperCase() ? 'w' : 'b',
         type: currentBrush.toLowerCase()
       };
-      setReviewRequired(true);
-      renderMiniBoardFromGrid();
+        renderMiniBoardFromGrid();
       updateFenFromGrid();
     } else {
       openPaletteForSquare(sq, r, c);
@@ -699,8 +666,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         };
       }
       closePalette();
-      setReviewRequired(true);
-      renderMiniBoardFromGrid();
+        renderMiniBoardFromGrid();
       updateFenFromGrid();
     });
   });

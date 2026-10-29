@@ -2011,8 +2011,7 @@ button, select { line-height: 1.5; }
   pointer-events: none;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.2);
 }
-.screenshot-crop-overlay[hidden],
-.screenshot-review-confirm[hidden] { display: none !important; }
+.screenshot-crop-overlay[hidden] { display: none !important; }
 .screenshot-crop-help {
   display: flex;
   flex-wrap: wrap;
@@ -2022,23 +2021,7 @@ button, select { line-height: 1.5; }
   font-size: 11px;
   color: #d0dccd;
 }
-.screenshot-review-confirm {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  border: 1px solid rgba(247, 201, 120, 0.38);
-  border-radius: 8px;
-  background: rgba(247, 201, 120, 0.08);
-  padding: 8px 12px;
-  color: #f6dbab;
-  font-size: 12px;
-  cursor: pointer;
-}
-.screenshot-review-confirm input {
-  accent-color: #81b64c;
-  width: 17px;
-  height: 17px;
-}
+
 .screenshot-status.warning {
   background: rgba(247, 201, 120, 0.11);
   color: #f7d99e;
