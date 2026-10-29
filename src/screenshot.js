@@ -466,7 +466,9 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         renderMiniBoardFromGrid();
         updateFenFromGrid();
         if (result.reliable) {
-          scanStatus.textContent = '✅ تم استخراج القطع بواسطة نموذج بصري موثوق. تحقق من صاحب الدور ثم اضغط تقييم.';
+          scanStatus.textContent = result.method === 'chesscom-gray-templates'
+            ? '✅ VISION 3.1 — تمت مطابقة أشكال القطع الرمادية مع الرقعة بنجاح. راجع صاحب الدور قبل التقييم.'
+            : '✅ VISION 3.1 — تعرّف بصري ناجح مع فحص قانونية الوضعية. راجع صاحب الدور قبل التقييم.';
           scanStatus.className = 'screenshot-status success';
         } else {
           scanStatus.textContent = '⚠️ ' + (result.reason || 'التعرّف غير مؤكد.') +
