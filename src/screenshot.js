@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js';
 import { getPieceSvg } from './pieces.js';
+import { recognizeScreenshot, validatePlacement } from './screenshot-recognition.js';
 
 export function initScreenshotFeature({ onApplyFen, onStatus }) {
   const modal = document.getElementById('screenshot-modal');
@@ -17,6 +18,10 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   const evaluateBtn = document.getElementById('screenshot-evaluate-btn');
   const resetBtn = document.getElementById('screenshot-reset-btn');
   const piecePalette = document.getElementById('screenshot-piece-palette');
+  const cropOverlay = document.getElementById('screenshot-crop-overlay');
+  const reviewControl = document.getElementById('screenshot-review-confirm');
+  const reviewToggle = document.getElementById('screenshot-review-toggle');
+  const rescanOriginalBtn = document.getElementById('screenshot-rescan-original');
 
   // Transformation buttons
   const btnRotate180 = document.getElementById('btn-rotate-180');
@@ -37,7 +42,26 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   let currentImageBlob = null;
   let currentImageUrl = null;
   let isScanning = false;
+  let scanGeneration = 0;
+  let reviewRequired = false;
+  let reviewApproved = false;
+  let cropStart = null;
   let currentBrush = 'cursor'; // 'cursor', 'none', or piece char 'P', 'b', etc.
+
+  const blankGrid = () => Array.from({ length: 8 }, () => Array(8).fill(null));
+  
+  function setReviewRequired(required) {
+    reviewRequired = required;
+    reviewApproved = false;
+    if (reviewControl) reviewControl.hidden = !required;
+    if (reviewToggle) reviewToggle.checked = false;
+    validateSubmit();
+  }
+
+  reviewToggle?.addEventListener('change', () => {
+    reviewApproved = Boolean(reviewToggle.checked);
+    validateSubmit();
+  });
 
   function createInitialGrid() {
     // Default starting board position as a reliable starting point
@@ -75,12 +99,15 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   }
 
   function resetView() {
+    scanGeneration++; // Invalidates a previous asynchronous recognition attempt.
     currentGrid = createInitialGrid();
     activeTurn = 'w';
+    setReviewRequired(false);
     activeSquare = null;
     currentImageBlob = null;
     currentImageUrl = null;
     isScanning = false;
+    if (cropOverlay) cropOverlay.hidden = true;
     currentBrush = 'cursor';
     updateBrushActiveState();
     dropzone.hidden = false;
@@ -170,6 +197,70 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     }
   });
 
+  // Drag over the original image to crop a square board, then retry recognition.
+  function cropRectFromPointer(e) {
+    const r = imgElement.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+      y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
+    };
+  }
+
+  function drawCropSelection(start, end) {
+    const side = Math.min(Math.abs(end.x - start.x), Math.abs(end.y - start.y));
+    const x = end.x < start.x ? start.x - side : start.x;
+    const y = end.y < start.y ? start.y - side : start.y;
+    if (cropOverlay) {
+      cropOverlay.hidden = false;
+      Object.assign(cropOverlay.style, {
+        left: (100 * x) + '%',
+        top: (100 * y) + '%',
+        width: (100 * side) + '%',
+        height: (100 * side) + '%',
+      });
+    }
+    return { x, y, side };
+  }
+
+  imgElement.addEventListener('pointerdown', e => {
+    if (!currentImageBlob || isScanning || e.button !== 0) return;
+    cropStart = cropRectFromPointer(e);
+    imgElement.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+  imgElement.addEventListener('pointermove', e => {
+    if (!cropStart) return;
+    drawCropSelection(cropStart, cropRectFromPointer(e));
+  });
+  imgElement.addEventListener('pointercancel', () => {
+    cropStart = null;
+    if (cropOverlay) cropOverlay.hidden = true;
+  });
+  imgElement.addEventListener('pointerup', async e => {
+    if (!cropStart) return;
+    const selection = drawCropSelection(cropStart, cropRectFromPointer(e));
+    cropStart = null;
+    if (selection.side < 0.10 || !imgElement.naturalWidth) {
+      if (cropOverlay) cropOverlay.hidden = true;
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 768;
+    canvas.height = 768;
+    canvas.getContext('2d').drawImage(imgElement,
+      selection.x * imgElement.naturalWidth,
+      selection.y * imgElement.naturalHeight,
+      selection.side * imgElement.naturalWidth,
+      selection.side * imgElement.naturalHeight,
+      0, 0, 768, 768);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (blob) await scanImage(blob, true);
+    if (cropOverlay) cropOverlay.hidden = true;
+  });
+  rescanOriginalBtn?.addEventListener('click', () => {
+    if (currentImageBlob) scanImage(currentImageBlob, false);
+  });
+
   // Turn toggles
   turnWhiteBtn?.addEventListener('click', () => setTurn('w'));
   turnBlackBtn?.addEventListener('click', () => setTurn('b'));
@@ -216,7 +307,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
 
   btnClearBoard?.addEventListener('click', () => {
     currentGrid = Array(8).fill(null).map(() => Array(8).fill(null));
-    ensureKingsPresent();
+    setReviewRequired(true);
     renderMiniBoardFromGrid();
     updateFenFromGrid();
     scanStatus.textContent = '🗑️ تم تفريغ الرقعة. يمكنك ختم القطع بالنقر عليها.';
@@ -253,7 +344,9 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         turnWhiteBtn?.classList.add('active');
         turnBlackBtn?.classList.remove('active');
       }
+      if (!validatePlacement(parts[0]).ok) return;
       gridFromPlacement(parts[0]);
+      setReviewRequired(false); // A FEN typed by the user is an explicit edit.
       renderMiniBoardFromGrid();
       validateSubmit();
     } catch {}
@@ -274,114 +367,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     }
     onApplyFen(fen, currentImageBlob);
   });
-
-  // Enhanced Detection: Pierces badges ('!', '!!', arrows) to accurately recover Bishops and hidden pieces
-  async function refineGridWithBadgeAndArrowDetection(grid, imageUrl) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          const size = 512;
-          canvas.width = size;
-          canvas.height = size;
-          ctx.drawImage(img, 0, 0, size, size);
-
-          const sqSize = size / 8;
-
-          for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-              const sampleX = c * sqSize;
-              const sampleY = r * sqSize;
-              const data = ctx.getImageData(sampleX, sampleY, sqSize, sqSize).data;
-
-              let blueHighlight = 0;
-              let orangeArrows = 0;
-              let whiteBadge = 0;
-              let darkPiecePixels = 0;
-              const total = data.length / 4;
-
-              for (let p = 0; p < data.length; p += 4) {
-                const red = data[p];
-                const green = data[p + 1];
-                const blue = data[p + 2];
-
-                // Blue/Cyan Chess.com highlight
-                if (blue > 135 && red < 130 && green > 105) blueHighlight++;
-                // Orange/Yellow arrows
-                if (red > 190 && green > 115 && green < 205 && blue < 95) orangeArrows++;
-                // Bright white badge (!)
-                if (red > 215 && green > 215 && blue > 215) whiteBadge++;
-                // Dark piece pixels (black pieces)
-                if (red > 45 && red < 125 && green > 45 && green < 125 && blue > 45 && blue < 125) {
-                  darkPiecePixels++;
-                }
-              }
-
-              const hasBadgeOrHighlight = (blueHighlight > total * 0.10) || (orangeArrows > total * 0.03) || (whiteBadge > total * 0.06);
-
-              // Square with a badge / highlight where AI missed the piece or had doubt:
-              if (hasBadgeOrHighlight) {
-                if (darkPiecePixels > total * 0.03 || grid[r][c] === null) {
-                  // Diagonal tactical fork or badge piece is a Bishop!
-                  grid[r][c] = { color: 'b', type: 'b' };
-                }
-              }
-
-              // Auto-correct false bishops on pawn home ranks (rows 1 and 6)
-              if (grid[r][c] && grid[r][c].type === 'b') {
-                if (r === 1 || r === 6) {
-                  grid[r][c] = { color: grid[r][c].color, type: 'p' };
-                }
-              }
-            }
-          }
-          resolve(grid);
-        } catch {
-          resolve(grid);
-        }
-      };
-      img.onerror = () => resolve(grid);
-      img.src = imageUrl;
-    });
-  }
-
-  // Auto-detection of Black perspective (Inverted board in screenshot)
-  function detectAndFixPerspective(grid) {
-    let whiteTop = 0; // rows 0..2
-    let whiteBottom = 0; // rows 5..7
-    let blackTop = 0; // rows 0..2
-    let blackBottom = 0; // rows 5..7
-
-    let whiteKingRow = null;
-    let blackKingRow = null;
-
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const p = grid[r][c];
-        if (!p) continue;
-        if (p.color === 'w') {
-          if (r <= 2) whiteTop++;
-          if (r >= 5) whiteBottom++;
-          if (p.type === 'k') whiteKingRow = r;
-        } else if (p.color === 'b') {
-          if (r <= 2) blackTop++;
-          if (r >= 5) blackBottom++;
-          if (p.type === 'k') blackKingRow = r;
-        }
-      }
-    }
-
-    const whiteAtTop = (whiteKingRow !== null && whiteKingRow <= 2) || (whiteTop > whiteBottom && blackBottom > blackTop);
-    const blackAtBottom = (blackKingRow !== null && blackKingRow >= 5) || (blackBottom > blackTop);
-
-    if (whiteAtTop && blackAtBottom) {
-      return { rotated: true, grid: rotateGrid180(grid) };
-    }
-    return { rotated: false, grid };
-  }
 
   // Grid Transformation Helpers
   function rotateGrid180(grid) {
@@ -431,257 +416,98 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     return newGrid;
   }
 
-  // Main Image Input Handler
+  // Only a trained per-square classifier may label pieces. No invented
+  // bishops, no color-threshold-to-piece guesses, and no auto-inserted kings.
   async function handleImageInput(file) {
     if (!file) return;
     currentImageBlob = file;
-    isScanning = true;
-
+    currentGrid = blankGrid();
+    activeTurn = 'w';
+    turnWhiteBtn?.classList.add('active');
+    turnBlackBtn?.classList.remove('active');
+    setReviewRequired(true);
+    renderMiniBoardFromGrid();
+    updateFenFromGrid();
     dropzone.hidden = true;
     previewArea.hidden = false;
-    evaluateBtn.disabled = true;
 
-    // Permanently display image preview immediately
-    if (currentImageUrl) {
-      try { URL.revokeObjectURL(currentImageUrl); } catch {}
-    }
+    if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
     currentImageUrl = URL.createObjectURL(file);
     imgElement.src = currentImageUrl;
-    imgElement.style.display = 'block';
+    imgElement.draggable = false;
+    if (cropOverlay) cropOverlay.hidden = true;
+    await scanImage(file, false);
+  }
 
-    scanStatus.textContent = '⏳ جارٍ مسح الرقعة وقراءة القطع والتعرّف على الفيل…';
+  async function scanImage(file, cropped) {
+    const sequence = ++scanGeneration;
+    isScanning = true;
+    validateSubmit();
+    scanStatus.textContent = cropped
+      ? '⏳ جارٍ تحليل الرقعة المحددة باستخدام نموذج التعرّف البصري…'
+      : '⏳ جارٍ اكتشاف حدود الرقعة وقراءة المربعات الـ64…';
     scanStatus.className = 'screenshot-status loading';
-
     try {
-      // 1. Try neural recognition API
-      const aiFen = await scanWithNeuralApi(file);
-      if (aiFen) {
-        gridFromPlacement(aiFen.split(/\s+/)[0]);
-
-        // Enhanced badge & arrow recovery (restores bishops obscured by '!' or arrows)
-        currentGrid = await refineGridWithBadgeAndArrowDetection(currentGrid, currentImageUrl);
-
-        // Auto-fix Black perspective if White is at top
-        const fix = detectAndFixPerspective(currentGrid);
-        currentGrid = fix.grid;
-
-        ensureKingsPresent();
+      // A browser-side ONNX neural model detects board bounds and each piece.
+      // The screenshot itself never leaves the user's browser.
+      const result = await recognizeScreenshot(file);
+      if (sequence !== scanGeneration) return;
+      if (result.placement) {
+        gridFromPlacement(result.placement);
+        setReviewRequired(!result.reliable);
         renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = fix.rotated
-          ? '🎯 تم التعرّف على الفيل واستخراج الرقعة وتدويرها 180° لتطابق منظور اللعبة بدقة!'
-          : '🎯 تم التعرّف على الفيل واستخراج الرقعة بنجاح! راجع القطع ثم اضغط تقييم.';
-        scanStatus.className = 'screenshot-status success';
-        validateSubmit();
-        isScanning = false;
-        return;
-      }
-
-      // 2. Try fast client-side canvas analysis
-      const localResult = await analyzeBoardWithCanvas(currentImageUrl);
-      if (localResult && localResult.confidence > 0.6) {
-        let grid = await refineGridWithBadgeAndArrowDetection(localResult.grid, currentImageUrl);
-        const fix = detectAndFixPerspective(grid);
-        currentGrid = fix.grid;
-        ensureKingsPresent();
+        if (result.reliable) {
+          scanStatus.textContent = '✅ تم استخراج القطع بواسطة نموذج بصري موثوق. تحقق من صاحب الدور ثم اضغط تقييم.';
+          scanStatus.className = 'screenshot-status success';
+        } else {
+          scanStatus.textContent = '⚠️ ' + (result.reason || 'التعرّف غير مؤكد.') +
+            ' صحح القطع ثم فعّل مربع تأكيد المراجعة، أو اسحب حول الرقعة في الصورة لإعادة القراءة.';
+          scanStatus.className = 'screenshot-status warning';
+        }
+      } else {
+        currentGrid = blankGrid(); // Never display the starting board as a detected result.
+        setReviewRequired(true);
         renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '✅ تم التعرّف على الرقعة بنجاح! راجع القطع ثم اضغط تقييم.';
-        scanStatus.className = 'screenshot-status success';
-        validateSubmit();
-        isScanning = false;
-        return;
+        scanStatus.textContent = '⚠️ ' + (result.reason || 'تعذر التعرّف بشكل موثوق.') +
+          ' اسحب مربعاً يحيط بالرقعة في الصورة لإعادة الفحص، أو أدخل القطع يدوياً.';
+        scanStatus.className = 'screenshot-status warning';
       }
-      throw new Error('لم يتم تمييز جميع القطع آلياً.');
-    } catch {
-      // Fallback: Image preview stays 100% visible, show interactive editor with kings ready
-      ensureKingsPresent();
+    } catch (error) {
+      if (sequence !== scanGeneration) return;
+      currentGrid = blankGrid();
+      setReviewRequired(true);
       renderMiniBoardFromGrid();
       updateFenFromGrid();
-      scanStatus.textContent = '💡 تم عرض الرقعة التفاعلية. يمكنك اختيار أي قطعة لختمها بنقرة واحدة، ثم تقييم الوضعية.';
+      scanStatus.textContent = '⚠️ تعذر تحميل نموذج التعرف البصري. تأكد من اتصال الإنترنت، ثم اضغط «إعادة فحص الأصل» أو أدخل القطع يدوياً.';
       scanStatus.className = 'screenshot-status warning';
-      validateSubmit();
+      console.warn('Chess screenshot recognition unavailable:', error);
     } finally {
-      isScanning = false;
-    }
-  }
-
-  // Neural API call with safe timeout
-  async function scanWithNeuralApi(file) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6000);
-    try {
-      const form = new FormData();
-      form.append('files', file, 'screenshot.jpg');
-
-      const up = await fetch('https://yamero999-chess-fen-generation-api.hf.space/gradio_api/upload', {
-        method: 'POST',
-        body: form,
-        signal: controller.signal
-      });
-      if (!up.ok) return null;
-      const upData = await up.json();
-      if (!Array.isArray(upData) || !upData[0]) return null;
-
-      const call = await fetch('https://yamero999-chess-fen-generation-api.hf.space/gradio_api/call/predict_auto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: [{ path: upData[0], meta: { _type: 'gradio.FileData' } }] }),
-        signal: controller.signal
-      });
-      if (!call.ok) return null;
-      const callData = await call.json();
-      if (!callData.event_id) return null;
-
-      const sse = await fetch(`https://yamero999-chess-fen-generation-api.hf.space/gradio_api/call/predict_auto/${callData.event_id}`, {
-        signal: controller.signal
-      });
-      const sseText = await sse.text();
-      clearTimeout(timer);
-
-      for (const line of sseText.split('\n')) {
-        if (line.startsWith('data: ')) {
-          const parsed = JSON.parse(line.slice(6));
-          if (Array.isArray(parsed) && parsed[0]) {
-            const raw = parsed[0].trim().replace(/^["']|["']$/g, '');
-            if (raw.split('/').length === 8 && raw !== '8/8/8/8/8/8/8/8') {
-              return raw;
-            }
-          }
-        }
-      }
-      return null;
-    } catch {
-      clearTimeout(timer);
-      return null;
-    }
-  }
-
-  // Client-Side Image Analysis (Canvas Based)
-  function analyzeBoardWithCanvas(imageUrl) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          const size = 512;
-          canvas.width = size;
-          canvas.height = size;
-          ctx.drawImage(img, 0, 0, size, size);
-
-          const sqSize = size / 8;
-          let grid = Array(8).fill(null).map(() => Array(8).fill(null));
-          let detectedPieces = 0;
-
-          for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-              const sampleX = c * sqSize + sqSize * 0.25;
-              const sampleY = r * sqSize + sqSize * 0.25;
-              const sampleW = sqSize * 0.5;
-              const sampleH = sqSize * 0.5;
-
-              const data = ctx.getImageData(sampleX, sampleY, sampleW, sampleH).data;
-              let darkPixels = 0, lightPixels = 0, total = data.length / 4;
-
-              for (let p = 0; p < data.length; p += 4) {
-                const lum = (data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114);
-                if (lum < 75) darkPixels++;
-                if (lum > 185) lightPixels++;
-              }
-
-              if (darkPixels > total * 0.16) {
-                grid[r][c] = { color: 'b', type: r === 0 ? (c === 4 ? 'k' : c === 3 ? 'q' : c === 0 || c === 7 ? 'r' : c === 1 || c === 6 ? 'n' : 'b') : 'p' };
-                detectedPieces++;
-              } else if (lightPixels > total * 0.16) {
-                grid[r][c] = { color: 'w', type: r === 7 ? (c === 4 ? 'k' : c === 3 ? 'q' : c === 0 || c === 7 ? 'r' : c === 1 || c === 6 ? 'n' : 'b') : 'p' };
-                detectedPieces++;
-              }
-            }
-          }
-
-          if (detectedPieces >= 4) {
-            resolve({ grid, confidence: 0.75 });
-          } else {
-            resolve(null);
-          }
-        } catch {
-          resolve(null);
-        }
-      };
-      img.onerror = () => resolve(null);
-      img.src = imageUrl;
-    });
-  }
-
-  // Ensure 1 White King and 1 Black King exist
-  function ensureKingsPresent() {
-    let hasWhiteKing = false;
-    let hasBlackKing = false;
-
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const p = currentGrid[r][c];
-        if (p?.type === 'k') {
-          if (p.color === 'w') hasWhiteKing = true;
-          if (p.color === 'b') hasBlackKing = true;
-        }
-      }
-    }
-
-    if (!hasWhiteKing) {
-      if (!currentGrid[7][4]) currentGrid[7][4] = { color: 'w', type: 'k' };
-      else {
-        for (let r = 7; r >= 0 && !hasWhiteKing; r--) {
-          for (let c = 0; c < 8; c++) {
-            if (!currentGrid[r][c]) {
-              currentGrid[r][c] = { color: 'w', type: 'k' };
-              hasWhiteKing = true;
-              break;
-            }
-          }
-        }
-      }
-    }
-
-    if (!hasBlackKing) {
-      if (!currentGrid[0][4]) currentGrid[0][4] = { color: 'b', type: 'k' };
-      else {
-        for (let r = 0; r < 8 && !hasBlackKing; r++) {
-          for (let c = 0; c < 8; c++) {
-            if (!currentGrid[r][c]) {
-              currentGrid[r][c] = { color: 'b', type: 'k' };
-              hasBlackKing = true;
-              break;
-            }
-          }
-        }
+      if (sequence === scanGeneration) {
+        isScanning = false;
+        validateSubmit();
       }
     }
   }
 
   function gridFromPlacement(placement) {
-    const rows = placement.split('/');
-    let grid = Array(8).fill(null).map(() => Array(8).fill(null));
-    for (let r = 0; r < 8; r++) {
-      const rowStr = rows[r] || '8';
-      let c = 0;
-      for (const char of rowStr) {
-        if (/[1-8]/.test(char)) {
-          c += parseInt(char, 10);
-        } else if (/[pnbrqkPNBRQK]/.test(char)) {
-          if (c < 8) {
-            grid[r][c] = {
-              color: char === char.toUpperCase() ? 'w' : 'b',
-              type: char.toLowerCase()
-            };
-            c++;
-          }
+    const validation = validatePlacement(placement);
+    if (!validation.ok) throw new Error(validation.reason);
+    currentGrid = placement.split('/').map(row => {
+      const cells = [];
+      for (const char of row) {
+        if (/^[1-8]$/.test(char)) {
+          for (let i = 0; i < Number(char); i++) cells.push(null);
+        } else {
+          cells.push({
+            color: char === char.toUpperCase() ? 'w' : 'b',
+            type: char.toLowerCase(),
+          });
         }
       }
-    }
-    currentGrid = grid;
+      return cells;
+    });
   }
 
   function gridToPlacement() {
@@ -701,36 +527,30 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   }
 
   function updateFenFromGrid() {
-    ensureKingsPresent();
     const placement = gridToPlacement();
-    const fen = `${placement} ${activeTurn} - - 0 1`;
-    if (fenInput) fenInput.value = fen;
+    if (fenInput) fenInput.value = `${placement} ${activeTurn} - - 0 1`;
     validateSubmit();
   }
 
   function getNormalizedLegalFen() {
-    ensureKingsPresent();
     const placement = gridToPlacement();
-    const candidate = `${placement} ${activeTurn} - - 0 1`;
+    if (!validatePlacement(placement).ok) return null;
     try {
-      const c = new Chess(candidate);
-      return c.fen();
-    } catch {
-      try {
-        const c2 = new Chess(`${placement} ${activeTurn} KQkq - 0 1`);
-        return c2.fen();
-      } catch {
-        return candidate;
-      }
-    }
+      const fen = `${placement} ${activeTurn} - - 0 1`;
+      const board = new Chess(fen);
+      // The opponent (the player who just moved) cannot be in check.
+      const opposite = new Chess(`${placement} ${activeTurn === 'w' ? 'b' : 'w'} - - 0 1`);
+      if (opposite.isCheck()) return null;
+      return board.fen();
+    } catch { return null; }
   }
 
   function validateSubmit() {
     const fen = getNormalizedLegalFen();
+    const allowed = Boolean(fen && !isScanning && (!reviewRequired || reviewApproved));
     if (evaluateBtn) {
-      evaluateBtn.disabled = !fen;
-      if (fen) evaluateBtn.classList.add('pulse-ready');
-      else evaluateBtn.classList.remove('pulse-ready');
+      evaluateBtn.disabled = !allowed;
+      evaluateBtn.classList.toggle('pulse-ready', allowed);
     }
   }
 
@@ -788,6 +608,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   function handleSquareClick(sq, r, c) {
     if (currentBrush === 'none') {
       currentGrid[r][c] = null;
+      setReviewRequired(true);
       renderMiniBoardFromGrid();
       updateFenFromGrid();
     } else if (currentBrush !== 'cursor') {
@@ -795,6 +616,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         color: currentBrush === currentBrush.toUpperCase() ? 'w' : 'b',
         type: currentBrush.toLowerCase()
       };
+      setReviewRequired(true);
       renderMiniBoardFromGrid();
       updateFenFromGrid();
     } else {
@@ -843,6 +665,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         };
       }
       closePalette();
+      setReviewRequired(true);
       renderMiniBoardFromGrid();
       updateFenFromGrid();
     });
