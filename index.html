@@ -20,6 +20,7 @@
       </div>
 
       <div class="header-actions">
+        <button id="manual-toggle" class="btn btn-secondary header-btn" type="button" aria-pressed="false">♟ تحليل يدوي</button>
         <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
           <span>📋</span> أدخل PGN
         </button>
@@ -95,6 +96,24 @@
       <!-- Sidebar Column (Moves List + Review) -->
       <aside class="sidebar-column panel" aria-label="لوحة التحليل والنقلات">
         <h2 class="review-title"><span aria-hidden="true">★</span> مراجعة المباراة</h2>
+        <section id="manual-panel" class="manual-panel" aria-label="تحليل الوضعية يدويًا" hidden>
+          <div class="manual-eval-card" aria-live="polite">
+            <span class="manual-kicker">تقييم الوضعية الحالية</span>
+            <div class="manual-eval-line"><strong id="manual-leader">جارٍ تقييم الوضعية…</strong><b id="manual-score" dir="ltr">…</b></div>
+            <p id="manual-turn">دور الأبيض</p>
+            <small>التقييم الرقمي من منظور الأبيض؛ الموجب للأبيض والسالب للأسود.</small>
+          </div>
+          <div class="manual-actions">
+            <button id="manual-new" class="btn btn-secondary" type="button">بداية جديدة</button>
+            <button id="manual-exit" class="btn btn-secondary" type="button">العودة للمباراة</button>
+          </div>
+          <p class="manual-instructions">انقر على قطعة ثم مربع الوصول، أو اسحبها. يمكنك أيضًا كتابة النقلة أدناه.</p>
+          <form id="manual-move-form" class="manual-move-form">
+            <label for="manual-move-input">إدخال نقلة</label>
+            <div><input id="manual-move-input" dir="ltr" autocomplete="off" spellcheck="false" placeholder="e4 / Nf3 / e2e4" /><button class="btn btn-primary" type="submit">إضافة</button></div>
+          </form>
+          <p id="manual-error" class="manual-error" role="alert"></p>
+        </section>
         <!-- Accuracy Cards -->
         <div class="accuracy-summary">
           <div class="acc-box white-acc-box">
@@ -218,6 +237,12 @@
       </aside>
     </main>
   </div>
+
+  <dialog id="promotion-dialog" class="promotion-dialog" aria-labelledby="promotion-title">
+    <h3 id="promotion-title">اختر قطعة الترقية</h3>
+    <div id="promotion-options" class="promotion-options"></div>
+    <button id="promotion-cancel" class="btn btn-secondary" type="button">إلغاء</button>
+  </dialog>
 
   <!-- PGN Modal Dialog -->
   <dialog id="pgn-modal" class="pgn-dialog">

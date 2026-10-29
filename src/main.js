@@ -2,6 +2,7 @@ import { Chess } from 'chess.js';
 import { getPieceSvg } from './pieces.js';
 import './style.css';
 import { winChance, toUci, classifyMove, parseEngineLine } from './review.js';
+import { ManualSession, positionSummary } from './manual.js';
 
 const START_FEN = new Chess().fen();
 const DEMO = `[Event "Chess Insight Demo"]
@@ -39,6 +40,18 @@ let analyses = null;
 let analysisRunning = false;
 let hintRunning = false;
 let searchRunning = false;
+let manualMode = false;
+let manualSession = null;
+let selectedSquare = null;
+let pendingPromotion = null;
+let manualEvaluation = null;
+let manualEvalVersion = 0;
+let manualEvalTimer = null;
+let manualSearchActive = false;
+let manualShowBest = false;
+let manualDragTime = 0;
+let previousTab = 'review';
+const manualEvalCache = new Map();
 let currentHint = null; // { fen, uci, from, to, san, cpText }
 let lastRenderedPosition = 0;
 let audioContext = null;
@@ -111,6 +124,7 @@ function resetResults() {
 }
 
 function loadGame(pgn) {
+  if (manualMode) leaveManualMode();
   if (analysisRunning) cancelAnalysis();
   game = computeGames(pgn);
   currentPgn = pgn.trim();
@@ -277,20 +291,201 @@ function playMoveSound(capture = false) {
   } catch {} // Audio availability must never block board navigation.
 }
 
+function enterManualMode(fresh = false) {
+  if (analysisRunning || hintRunning || (searchRunning && !manualSearchActive)) return;
+  if (!manualMode) previousTab = byId('tab-moves-btn').classList.contains('active') ? 'moves' : 'review';
+  manualMode = true;
+  manualSession = new ManualSession(fresh ? START_FEN : (game?.fens[0] || START_FEN));
+  if (!fresh && game) {
+    manualSession.moves = game.moves.slice(0, position);
+    manualSession.cursor = position;
+  }
+  selectedSquare = null;
+  manualShowBest = false;
+  currentHint = null;
+  byId('manual-error').textContent = '';
+  byId('manual-move-input').value = '';
+  setManualControls();
+  setTab('moves');
+  renderBoard(); renderMoves();
+  requestManualEvaluation();
+}
+
+function leaveManualMode() {
+  manualMode = false;
+  manualEvalVersion++;
+  clearTimeout(manualEvalTimer); manualEvalTimer = null;
+  if (manualSearchActive && searchRunning) worker?.postMessage('stop');
+  selectedSquare = null; pendingPromotion = null; currentHint = null;
+  if (byId('promotion-dialog').open) byId('promotion-dialog').close();
+  setManualControls();
+  setTab(previousTab);
+  renderAll();
+  status('عدت إلى المباراة الأصلية.', 'info');
+}
+
+function setManualControls() {
+  document.body.classList.toggle('manual-mode', manualMode);
+  byId('manual-toggle').setAttribute('aria-pressed', String(manualMode));
+  byId('manual-toggle').textContent = manualMode ? '↩ العودة للمباراة' : '♟ تحليل يدوي';
+  byId('manual-panel').hidden = !manualMode;
+  byId('analyze-btn').hidden = manualMode || analysisRunning;
+  byId('analyze-btn').disabled = manualSearchActive || hintRunning;
+  byId('hint-btn').disabled = analysisRunning || hintRunning;
+  byId('board').setAttribute('role', manualMode ? 'group' : 'img');
+  byId('board').setAttribute('aria-label', manualMode ? 'رقعة تفاعلية، اختر قطعة ثم مربع الوصول' : 'رقعة الشطرنج');
+  document.querySelector('.review-title').innerHTML = `<span aria-hidden="true">★</span> ${manualMode ? 'تحليل الوضعية' : 'مراجعة المباراة'}`;
+  for (const color of ['white', 'black']) {
+    const key = color === 'white' ? 'White' : 'Black';
+    byId(`${color}-name`).textContent = manualMode ? (color === 'white' ? 'الأبيض' : 'الأسود') : (game?.headers[key] || (color === 'white' ? 'الأبيض' : 'الأسود'));
+    byId(`${color}-elo`).textContent = manualMode ? color.toUpperCase() : (game?.headers[`${key}Elo`] ? `ELO ${game.headers[`${key}Elo`]}` : color.toUpperCase());
+  }
+  if (manualMode) renderManualSummary();
+}
+
+function renderManualSummary() {
+  if (!manualMode) return;
+  const board = manualSession.board();
+  const summary = positionSummary(board, manualEvaluation);
+  byId('manual-leader').textContent = summary.title;
+  byId('manual-score').textContent = summary.score;
+  byId('manual-score').dataset.tone = summary.tone;
+  const terminal = board.isGameOver();
+  byId('manual-turn').textContent = terminal ? 'انتهت هذه الوضعية؛ تراجع عن نقلة لتجربة بديل.'
+    : `دور ${board.turn() === 'w' ? 'الأبيض' : 'الأسود'}${board.inCheck() ? ' · كش' : ''}${manualEvaluation ? ` · العمق ${manualEvaluation.depth || '—'}` : ''}`;
+  byId('manual-move-input').disabled = terminal;
+  byId('manual-move-form').querySelector('button').disabled = terminal;
+  byId('hint-btn').disabled = terminal;
+}
+
+function requestManualEvaluation() {
+  manualEvalVersion++;
+  selectedSquare = null;
+  manualEvaluation = null;
+  currentHint = null;
+  clearTimeout(manualEvalTimer);
+  renderBoard();
+  manualEvalTimer = setTimeout(() => { manualEvalTimer = null; evaluateManualPosition(); }, 180);
+}
+
+async function evaluateManualPosition() {
+  if (!manualMode || manualSearchActive) return;
+  const version = manualEvalVersion;
+  const board = manualSession.board();
+  const fen = board.fen();
+  const positionCommand = manualSession.positionCommand;
+  const depth = Number(byId('depth-select').value) || 16;
+  const key = `${positionCommand}|${depth}`;
+  manualSearchActive = true;
+  try {
+    let result = manualEvalCache.get(key);
+    if (board.isGameOver()) result = { cpWhite: board.isCheckmate() ? (board.turn() === 'w' ? -10000 : 10000) : 0, best: '(none)', depth: 0 };
+    if (!result) {
+      await ensureEngine();
+      if (!manualMode || version !== manualEvalVersion) return;
+      result = await analyzePosition(fen, depth, { positionCommand });
+      if (result.depth >= depth) {
+        if (manualEvalCache.size >= 150) manualEvalCache.delete(manualEvalCache.keys().next().value);
+        manualEvalCache.set(key, result);
+      }
+    }
+    if (!manualMode || version !== manualEvalVersion) return;
+    manualEvaluation = result;
+    if (manualShowBest && result.best && result.best !== '(none)') {
+      currentHint = { fen, from: result.best.slice(0, 2), to: result.best.slice(2, 4), cp: result.cpWhite,
+        text: `أفضل نقلة: ${result.bestSan || uciToSan(fen, result.best)}` };
+    }
+    renderBoard();
+    status(`${positionSummary(board, result).title} · التقييم محدث للوضعية الحالية.`, 'success');
+  } catch (err) {
+    if (manualMode && version === manualEvalVersion) {
+      byId('manual-leader').textContent = 'تعذر تقييم الوضعية';
+      status(err.message, 'error');
+    }
+  } finally {
+    manualSearchActive = false;
+    if (!manualMode) byId('analyze-btn').disabled = analysisRunning || hintRunning;
+    else if (version !== manualEvalVersion && !manualEvalTimer) evaluateManualPosition();
+  }
+}
+
+function playManualMove(input) {
+  if (!manualMode) return;
+  try {
+    const move = manualSession.play(input);
+    playMoveSound(Boolean(move.captured));
+    selectedSquare = null;
+    manualShowBest = false;
+    byId('manual-error').textContent = '';
+    byId('manual-move-input').value = '';
+    renderMoves();
+    requestManualEvaluation();
+    updateActiveMove();
+  } catch (err) { byId('manual-error').textContent = err.message; }
+}
+
+function navigateManual(cursor) {
+  if (manualSession.cursor === cursor) return;
+  const before = manualSession.cursor;
+  manualSession.jump(cursor);
+  if (before !== manualSession.cursor) playMoveSound();
+  manualShowBest = false;
+  byId('manual-error').textContent = '';
+  requestManualEvaluation();
+  updateActiveMove();
+}
+
+function chooseManualDestination(from, to) {
+  const candidates = manualSession.legalMoves(from).filter(move => move.to === to);
+  if (!candidates.length) return false;
+  if (candidates.some(move => move.promotion)) {
+    pendingPromotion = { from, to };
+    const color = manualSession.board().turn();
+    const options = byId('promotion-options'); options.replaceChildren();
+    for (const [piece, name] of [['q', 'وزير'], ['r', 'رخ'], ['b', 'فيل'], ['n', 'حصان']]) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.setAttribute('aria-label', `ترقية إلى ${name}`);
+      button.innerHTML = getPieceSvg(color, piece);
+      button.addEventListener('click', () => {
+        const move = pendingPromotion; pendingPromotion = null;
+        byId('promotion-dialog').close();
+        if (move) playManualMove({ ...move, promotion: piece });
+      });
+      options.appendChild(button);
+    }
+    byId('promotion-dialog').showModal();
+  } else playManualMove({ from, to });
+  return true;
+}
+
+function selectManualSquare(square) {
+  if (!manualMode || Date.now() - manualDragTime < 120) return;
+  if (selectedSquare && chooseManualDestination(selectedSquare, square)) return;
+  const board = manualSession.board();
+  const piece = board.get(square);
+  selectedSquare = !board.isGameOver() && piece?.color === board.turn() && selectedSquare !== square ? square : null;
+  renderBoard();
+}
+
 function renderBoard() {
-  if (position !== lastRenderedPosition) {
+  if (!manualMode && position !== lastRenderedPosition) {
     const soundedMove = game?.moves[Math.max(position, lastRenderedPosition) - 1];
     playMoveSound(Boolean(soundedMove?.captured));
     lastRenderedPosition = position;
   }
   const grid = byId('board');
+  const focusedSquare = manualMode ? document.activeElement?.closest('.square')?.dataset.square : null;
   grid.replaceChildren();
-  const currentFen = game ? game.fens[position] : START_FEN;
-  const info = position > 0 ? analyses?.moves[position - 1] : null;
+  const currentFen = manualMode ? manualSession.fen : (game ? game.fens[position] : START_FEN);
+  const displayedPosition = manualMode ? manualSession.cursor : position;
+  const displayedMoves = manualMode ? manualSession.moves : (game?.moves || []);
+  const manualBoard = manualMode ? manualSession.board() : null;
+  const legalTargets = manualMode && selectedSquare ? manualSession.legalMoves(selectedSquare) : [];
+  const info = !manualMode && position > 0 ? analyses?.moves[position - 1] : null;
   const alternative = info?.best && info.best !== info.uci && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(info.best) ? info.best : null;
   const hint = currentHint?.fen === currentFen ? currentHint : null;
   const fen = currentFen;
-  const last = game && position > 0 ? game.moves[position - 1] : null;
+  const last = manualMode ? manualSession.lastMove : (game && position > 0 ? game.moves[position - 1] : null);
   // Keep the played position visible. The arrow shows the alternative's original
   // source and destination without moving a piece or rewinding the board.
   const arrow = hint || (alternative ? { from: alternative.slice(0, 2), to: alternative.slice(2, 4) } : null);
@@ -300,6 +495,23 @@ function renderBoard() {
   view.forEach((entry, i) => {
     const sq = document.createElement('div');
     sq.className = `square ${(entry.r + entry.c) % 2 === 0 ? 'light' : 'dark'}`;
+    sq.dataset.square = entry.square;
+    if (manualMode) {
+      sq.setAttribute('role', 'button'); sq.tabIndex = 0;
+      sq.setAttribute('aria-label', entry.square + (entry.piece ? ` ${entry.piece.color === 'w' ? 'أبيض' : 'أسود'}` : ' فارغ'));
+      if (selectedSquare === entry.square) sq.classList.add('manual-selected');
+      if (legalTargets.some(move => move.to === entry.square)) sq.classList.add(entry.piece ? 'manual-capture-target' : 'manual-legal-target');
+      sq.addEventListener('click', () => selectManualSquare(entry.square));
+      sq.addEventListener('keydown', event => {
+        if (['Enter', ' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); selectManualSquare(entry.square); }
+      });
+      sq.addEventListener('dragover', event => event.preventDefault());
+      sq.addEventListener('drop', event => {
+        event.preventDefault(); manualDragTime = Date.now();
+        const from = event.dataTransfer.getData('text/plain');
+        if (/^[a-h][1-8]$/.test(from)) chooseManualDestination(from, entry.square);
+      });
+    }
 
     if (last && (last.from === entry.square || last.to === entry.square)) {
       sq.classList.add('last-move');
@@ -337,12 +549,21 @@ function renderBoard() {
         const pieceWrap = document.createElement('div');
         pieceWrap.className = 'piece-svg-wrap';
         pieceWrap.innerHTML = svgCode;
+        if (manualMode && entry.piece.color === manualBoard.turn() && !manualBoard.isGameOver()) {
+          pieceWrap.draggable = true;
+          pieceWrap.addEventListener('dragstart', event => {
+            selectedSquare = entry.square;
+            event.dataTransfer.setData('text/plain', entry.square);
+            event.dataTransfer.effectAllowed = 'move';
+          });
+          pieceWrap.addEventListener('dragend', () => { manualDragTime = Date.now(); });
+        }
         sq.appendChild(pieceWrap);
       }
     }
 
     // Move classification badge on the target square of the last move (Chess.com style)
-    if (last && last.to === entry.square && analyses && position > 0) {
+    if (!manualMode && last && last.to === entry.square && analyses && position > 0) {
       const moveInfo = analyses.moves[position - 1];
       if (moveInfo && moveInfo.category) {
         const catMeta = LABELS.find(x => x[0] === moveInfo.category);
@@ -359,14 +580,15 @@ function renderBoard() {
     grid.appendChild(sq);
   });
 
+  if (focusedSquare) grid.querySelector(`[data-square="${focusedSquare}"]`)?.focus({ preventScroll: true });
   if (arrow) drawMoveArrow(grid, arrow.from, arrow.to);
-  byId('move-counter').textContent = `${fullMoveCount(position)} / ${fullMoveCount(game?.moves.length || 0)}`;
+  byId('move-counter').textContent = `${fullMoveCount(displayedPosition)} / ${fullMoveCount(displayedMoves.length)}`;
 
   let desc = 'بداية المباراة';
-  if (game && position > 0) {
-    const m = game.moves[position - 1];
-    desc = `${Math.floor((position - 1) / 2) + 1}${m.color === 'w' ? '.' : '...'} ${m.san}`;
-    const info = analyses?.moves[position - 1];
+  if (displayedPosition > 0) {
+    const m = displayedMoves[displayedPosition - 1];
+    desc = `${Number(m.before.split(' ')[5])}${m.color === 'w' ? '.' : '...'} ${m.san}`;
+    const info = manualMode ? null : analyses?.moves[position - 1];
     if (info) {
       const lbl = LABELS.find(x => x[0] === info.category);
       desc += ` · ${lbl?.[1] || ''} · دقة ${formatNum(info.accuracy)}%`;
@@ -380,7 +602,7 @@ function renderBoard() {
   byId('move-description').textContent = desc;
 
   // Update evaluation bar for current position
-  const curEval = analyses?.evals?.[position]?.cpWhite ?? (hint ? hint.cp : 0);
+  const curEval = manualMode ? (manualEvaluation?.cpWhite ?? null) : (analyses?.evals?.[position]?.cpWhite ?? (hint ? hint.cp : 0));
   updateEvalBar(curEval);
 
   // Update hint banner
@@ -395,21 +617,27 @@ function renderBoard() {
     }
   }
 
-  byId('first-btn').disabled = position === 0;
-  byId('prev-btn').disabled = position === 0;
-  byId('next-btn').disabled = !game || position === game.moves.length;
-  byId('last-btn').disabled = !game || position === game.moves.length;
+  byId('first-btn').disabled = displayedPosition === 0;
+  byId('prev-btn').disabled = displayedPosition === 0;
+  byId('next-btn').disabled = displayedPosition === displayedMoves.length;
+  byId('last-btn').disabled = displayedPosition === displayedMoves.length;
+  if (manualMode) {
+    if (!manualEvaluation) byId('eval-bar-score').textContent = '…';
+    renderManualSummary();
+  }
 }
 
 function renderMoves() {
   const root = byId('moves-list');
   root.replaceChildren();
-  if (!game) {
-    root.innerHTML = '<div class="empty-moves">لنبدأ بإدخال مباراتك.</div>';
+  const displayedMoves = manualMode ? manualSession.moves : game?.moves;
+  const activePosition = manualMode ? manualSession.cursor : position;
+  if (!displayedMoves?.length) {
+    root.innerHTML = `<div class="empty-moves">${manualMode ? 'حرّك قطعة على الرقعة لإضافة أول نقلة.' : 'لنبدأ بإدخال مباراتك.'}</div>`;
     return;
   }
 
-  for (let i = 0; i < game.moves.length; i += 2) {
+  for (let i = 0; i < displayedMoves.length; i += 2) {
     const row = document.createElement('div');
     row.className = 'move-row';
     const num = document.createElement('span');
@@ -417,17 +645,18 @@ function renderMoves() {
     num.textContent = `${Math.floor(i / 2) + 1}.`;
     row.appendChild(num);
 
-    for (let j = i; j < Math.min(i + 2, game.moves.length); j++) {
-      const m = game.moves[j];
-      const info = analyses?.moves[j];
+    for (let j = i; j < Math.min(i + 2, displayedMoves.length); j++) {
+      const m = displayedMoves[j];
+      const info = manualMode ? null : analyses?.moves[j];
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'move-chip' + (position === j + 1 ? ' active' : '');
+      btn.className = 'move-chip' + (activePosition === j + 1 ? ' active' : '');
       btn.title = info
         ? `دقة تقديرية ${formatNum(info.accuracy)}% · انخفاض فرص الفوز ${formatNum(info.winLoss)} نقطة مئوية`
         : 'انقر لعرض هذه النقلة';
 
       btn.addEventListener('click', () => {
+        if (manualMode) { navigateManual(j + 1); return; }
         position = j + 1;
         renderBoard();
         updateActiveMove();
@@ -465,7 +694,7 @@ function updateActiveMove() {
   const chips = root.querySelectorAll('.move-chip');
 
   chips.forEach((btn, idx) => {
-    const isActive = position === idx + 1;
+    const isActive = (manualMode ? manualSession.cursor : position) === idx + 1;
     btn.classList.toggle('active', isActive);
     if (isActive && container) {
       const btnTop = btn.offsetTop;
@@ -520,6 +749,7 @@ function renderStats() {
 }
 
 function renderChart() {
+  if (manualMode) return;
   const wrap = byId('chart-wrap');
   if (!analyses?.evals?.length) return;
   const values = analyses.evals.map(e => e.cpWhite);
@@ -733,6 +963,11 @@ function analyzePosition(fen, depth, { multiPv = 1, searchMove = null, positionC
 
 // Interactive Best Move Calculation for Current Position
 async function showBestMoveHint() {
+  if (manualMode) {
+    manualShowBest = true;
+    evaluateManualPosition();
+    return;
+  }
   if (!game || analysisRunning || hintRunning) return;
   currentHint = null;
   renderBoard();
@@ -746,6 +981,7 @@ async function showBestMoveHint() {
   hintRunning = true;
   byId('hint-btn').disabled = true;
   byId('analyze-btn').disabled = true;
+  byId('manual-toggle').disabled = true;
   const turnName = board.turn() === 'w' ? 'الأبيض' : 'الأسود';
   const hintBanner = byId('hint-banner');
   if (hintBanner) {
@@ -788,6 +1024,7 @@ async function showBestMoveHint() {
     hintRunning = false;
     byId('hint-btn').disabled = false;
     byId('analyze-btn').disabled = false;
+    byId('manual-toggle').disabled = false;
   }
 }
 
@@ -867,6 +1104,7 @@ function displayResults() {
 
 function setAnalyzing(active) {
   analysisRunning = active;
+  byId('manual-toggle').disabled = active;
   byId('hint-btn').disabled = active;
   byId('open-pgn-btn').disabled = active;
   byId('pgn-modal-file').disabled = active;
@@ -889,7 +1127,7 @@ function updateProgress(done, total) {
 }
 
 async function startAnalysis() {
-  if (analysisRunning || hintRunning || searchRunning) return;
+  if (manualMode || manualSearchActive || analysisRunning || hintRunning || searchRunning) return;
   const text = byId('pgn-text').value.trim();
   if (!text) {
     status('أدخل نص PGN صحيحاً أولاً.', 'error');
@@ -1076,6 +1314,16 @@ function handleFileInput(e) {
 byId('pgn-file').addEventListener('change', handleFileInput);
 byId('pgn-modal-file').addEventListener('change', handleFileInput);
 
+byId('manual-toggle').addEventListener('click', () => manualMode ? leaveManualMode() : enterManualMode());
+byId('manual-new').addEventListener('click', () => enterManualMode(true));
+byId('manual-exit').addEventListener('click', leaveManualMode);
+byId('manual-move-form').addEventListener('submit', event => {
+  event.preventDefault(); playManualMove(byId('manual-move-input').value);
+});
+byId('depth-select').addEventListener('change', () => { if (manualMode) requestManualEvaluation(); });
+byId('promotion-cancel').addEventListener('click', () => { pendingPromotion = null; byId('promotion-dialog').close(); });
+byId('promotion-dialog').addEventListener('cancel', () => { pendingPromotion = null; });
+
 // Action buttons
 byId('analyze-btn').addEventListener('click', startAnalysis);
 byId('cancel-btn').addEventListener('click', cancelAnalysis);
@@ -1090,6 +1338,7 @@ updateSoundControl();
 
 
 byId('first-btn').addEventListener('click', () => {
+  if (manualMode) { navigateManual(0); return; }
   position = 0;
   currentHint = null;
   renderBoard();
@@ -1098,6 +1347,7 @@ byId('first-btn').addEventListener('click', () => {
 });
 
 byId('prev-btn').addEventListener('click', () => {
+  if (manualMode) { navigateManual(manualSession.cursor - 1); return; }
   position = Math.max(0, position - 1);
   currentHint = null;
   renderBoard();
@@ -1106,6 +1356,7 @@ byId('prev-btn').addEventListener('click', () => {
 });
 
 byId('next-btn').addEventListener('click', () => {
+  if (manualMode) { navigateManual(manualSession.cursor + 1); return; }
   position = Math.min(game?.moves.length || 0, position + 1);
   currentHint = null;
   renderBoard();
@@ -1114,6 +1365,7 @@ byId('next-btn').addEventListener('click', () => {
 });
 
 byId('last-btn').addEventListener('click', () => {
+  if (manualMode) { navigateManual(manualSession.moves.length); return; }
   position = game?.moves.length || 0;
   currentHint = null;
   renderBoard();
@@ -1129,6 +1381,15 @@ byId('flip-btn').addEventListener('click', () => {
 // Keyboard Navigation - Intercepts Arrow Keys to Prevent Window Scroll
 window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+  if (manualMode) {
+    if (e.key === 'Escape') { selectedSquare = null; renderBoard(); return; }
+    if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault(); e.stopPropagation();
+      navigateManual(e.key === 'Home' ? 0 : e.key === 'End' ? manualSession.moves.length
+        : manualSession.cursor + (['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : -1));
+    }
+    return;
+  }
   if (!game) return;
 
   const navKeys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', ' '];

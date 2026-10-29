@@ -1421,3 +1421,49 @@ button, select { line-height: 1.5; }
 @media (max-width: 520px) {
   .stat-head, .stat-row { grid-template-columns: 30px minmax(0, 1fr) 30px; column-gap: 6px; padding-inline: 6px; }
 }
+
+/* Position analysis is an independent scratch line; the imported game stays intact. */
+.manual-mode .accuracy-summary,
+.manual-mode .chart-section,
+.manual-mode .sidebar-tabs,
+.manual-mode #pane-review,
+.manual-mode .mini-score { display: none; }
+.manual-mode .tab-content-container { min-height: 100px; max-height: 270px; margin-top: 14px; }
+.manual-panel { display: grid; gap: 12px; }
+.manual-eval-card { padding: 15px; border: 1px solid var(--border-light); border-radius: 8px; background: #353630; }
+.manual-kicker { color: #b8c5ac; font-size: 12px; }
+.manual-eval-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 5px; }
+#manual-leader { font-size: 18px; line-height: 1.6; }
+#manual-score { font: 800 27px var(--font-latin); font-variant-numeric: tabular-nums; color: #a4d96d; flex: none; }
+#manual-score[data-tone="pending"] { color: var(--text-muted); }
+#manual-score[data-tone="black"] { color: #dbd9d4; }
+#manual-turn { margin: 7px 0; font-size: 13px; color: #d6d8d0; }
+.manual-eval-card small { display: block; font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+.manual-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.manual-actions .btn { flex: 1; min-height: 36px; }
+.manual-instructions { margin: 0; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
+.manual-move-form label { display: block; font-size: 12px; margin-bottom: 5px; }
+.manual-move-form > div { display: flex; align-items: stretch; gap: 8px; }
+.manual-move-form input { min-width: 0; flex: 1; width: 100%; background: var(--bg-input); border: 1px solid var(--border-light); border-radius: 6px; color: var(--text-main); padding: 9px 11px; font: 500 16px var(--font-latin); }
+.manual-error { margin: 0; padding: 7px 9px; color: #ffc4bc; background: #4b302b; border-radius: 5px; font-size: 12px; }
+.manual-error:empty { display: none; }
+.manual-mode .square { cursor: pointer; }
+.manual-mode .piece-svg-wrap { pointer-events: auto; }
+.manual-mode .piece-svg-wrap[draggable="true"] { cursor: grab; }
+.manual-mode .piece-svg-wrap svg { pointer-events: none; }
+.square.manual-selected { box-shadow: inset 0 0 0 3px #4e8e29; }
+.square.manual-legal-target::after { content: ''; position: absolute; width: 23%; height: 23%; border-radius: 50%; background: rgba(47, 78, 34, .45); pointer-events: none; }
+.square.manual-capture-target::after { content: ''; position: absolute; inset: 3%; border: 4px solid rgba(47, 78, 34, .5); border-radius: 50%; pointer-events: none; }
+.square:focus-visible { outline: 3px solid #3e7923; outline-offset: -3px; z-index: 2; }
+.promotion-dialog { border: 1px solid var(--border-light); border-radius: 12px; background: var(--bg-panel); color: var(--text-main); padding: 20px; max-width: calc(100vw - 24px); }
+.promotion-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.promotion-dialog h3 { font-size: 18px; margin: 0 0 12px; }
+.promotion-options { display: flex; gap: 8px; margin-bottom: 16px; }
+.promotion-options button { width: 65px; height: 65px; border: 1px solid #777; border-radius: 6px; background: #cbd0c7; padding: 2px; }
+.promotion-options button:hover { background: #a7cb84; }
+.promotion-options svg { width: 100%; height: 100%; }
+@media (max-width: 520px) {
+  .manual-actions .btn { font-size: 12px; }
+  #manual-leader { font-size: 16px; }
+  .promotion-options button { width: 52px; height: 52px; }
+}
