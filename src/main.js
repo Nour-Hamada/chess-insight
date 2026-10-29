@@ -148,10 +148,18 @@ function loadGame(pgn) {
   renderAll();
 }
 
-function updateEvalBar(cp) {
+function updateEvalBar(cp, result = null) {
   const barFill = byId('eval-bar-fill');
   const barScore = byId('eval-bar-score');
   if (!barFill || !barScore) return;
+
+  if (result) {
+    const whiteWon = result === '1-0';
+    barScore.textContent = result;
+    barFill.style.height = `${(flipped ? !whiteWon : whiteWon) ? 100 : 0}%`;
+    barScore.className = `eval-bar-score ${whiteWon ? 'white-adv' : 'black-adv'}`;
+    return;
+  }
 
   if (cp === null || cp === undefined) {
     barFill.style.height = '50%';
@@ -165,9 +173,13 @@ function updateEvalBar(cp) {
 
   if (Math.abs(cp) >= 9000) {
     const distance = Math.round((10000 - Math.abs(cp)) / 50);
-    const sign = cp > 0 ? '' : '-';
-    text = `M${sign}${Math.max(1, distance)}`;
-    pct = cp > 0 ? 98 : 2;
+    if (distance <= 0) {
+      text = cp > 0 ? '1-0' : '0-1';
+      pct = cp > 0 ? 100 : 0;
+    } else {
+      text = `M${cp > 0 ? '' : '-'}${distance}`;
+      pct = cp > 0 ? 98 : 2;
+    }
   } else {
     pct = 50 + 50 * (2 / (1 + Math.exp(-0.0035 * cp)) - 1);
     pct = Math.max(3, Math.min(97, pct));
@@ -178,12 +190,7 @@ function updateEvalBar(cp) {
   const finalPct = flipped ? (100 - pct) : pct;
   barFill.style.height = `${finalPct}%`;
   barScore.textContent = text;
-
-  if (finalPct >= 50) {
-    barScore.className = 'eval-bar-score white-adv';
-  } else {
-    barScore.className = 'eval-bar-score black-adv';
-  }
+  barScore.className = finalPct >= 50 ? 'eval-bar-score white-adv' : 'eval-bar-score black-adv';
 }
 
 function boardCells(fen) {
@@ -635,8 +642,13 @@ function renderBoard() {
   byId('move-description').textContent = desc;
 
   // Update evaluation bar for current position
+  let matedResult = null;
+  try {
+    const terminalBoard = manualMode ? manualBoard : new Chess(fen);
+    if (terminalBoard?.isCheckmate()) matedResult = terminalBoard.turn() === 'w' ? '0-1' : '1-0';
+  } catch {}
   const curEval = manualMode ? (manualEvaluation?.cpWhite ?? null) : (analyses?.evals?.[position]?.cpWhite ?? (hint ? hint.cp : 0));
-  updateEvalBar(curEval);
+  updateEvalBar(curEval, matedResult);
 
   // Update hint banner
   const hintBanner = byId('hint-banner');
@@ -655,7 +667,7 @@ function renderBoard() {
   byId('next-btn').disabled = displayedPosition === displayedMoves.length;
   byId('last-btn').disabled = displayedPosition === displayedMoves.length;
   if (manualMode) {
-    if (!manualEvaluation) byId('eval-bar-score').textContent = '…';
+    if (!manualEvaluation && !matedResult) byId('eval-bar-score').textContent = '…';
     renderManualSummary();
   }
 }

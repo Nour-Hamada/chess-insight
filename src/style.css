@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
 
 :root {
   --bg-main: #111419;
@@ -1635,6 +1635,7 @@ button, select { line-height: 1.5; }
 }
 
 .screenshot-mini-board {
+  direction: ltr; /* files a-h run left-to-right even inside the RTL dialog */
   width: 220px;
   height: 220px;
   display: grid;

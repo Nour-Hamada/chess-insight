@@ -40,11 +40,19 @@ export class ManualSession {
 }
 
 export function positionSummary(board, evaluation = null) {
-  if (board.isCheckmate()) return { title: `${board.turn() === 'w' ? 'الأسود' : 'الأبيض'} فاز بالكش مات`, score: 'مات', tone: board.turn() === 'w' ? 'black' : 'white' };
-  if (board.isDraw()) return { title: 'الموقف تعادل', score: '0.0', tone: 'equal' };
+  if (board.isCheckmate()) {
+    const whiteWon = board.turn() === 'b';
+    return { title: `${whiteWon ? 'الأبيض' : 'الأسود'} فاز بالكش مات`, score: whiteWon ? '1-0' : '0-1', tone: whiteWon ? 'white' : 'black' };
+  }
+  if (board.isDraw()) return { title: 'الموقف تعادل', score: '½-½', tone: 'equal' };
   if (!evaluation) return { title: 'جارٍ تقييم الوضعية…', score: '…', tone: 'pending' };
   const cp = evaluation.cpWhite;
-  if (Math.abs(cp) >= 9000) return { title: `${cp > 0 ? 'الأبيض' : 'الأسود'} لديه مات إجباري`, score: `M${Math.max(1, Math.round((10000 - Math.abs(cp)) / 50))}`, tone: cp > 0 ? 'white' : 'black' };
+  if (Math.abs(cp) >= 9000) {
+    const distance = Math.round((10000 - Math.abs(cp)) / 50);
+    // M0 means the game is already decided: show the result, not "M1".
+    if (distance <= 0) return { title: `${cp > 0 ? 'الأبيض' : 'الأسود'} فاز بالكش مات`, score: cp > 0 ? '1-0' : '0-1', tone: cp > 0 ? 'white' : 'black' };
+    return { title: `${cp > 0 ? 'الأبيض' : 'الأسود'} لديه مات إجباري`, score: `M${distance}`, tone: cp > 0 ? 'white' : 'black' };
+  }
   return { title: Math.abs(cp) < 35 ? 'الموقف متوازن تقريبًا' : `${cp > 0 ? 'الأبيض' : 'الأسود'} متفوق`,
     score: `${cp > 0 ? '+' : ''}${(cp / 100).toFixed(1)}`, tone: Math.abs(cp) < 35 ? 'equal' : cp > 0 ? 'white' : 'black' };
 }

@@ -45,3 +45,14 @@ test('evaluation summaries use White-relative signs correctly', () => {
   assert.equal(positionSummary(board,{cpWhite:-200}).title,'الأسود متفوق');assert.equal(positionSummary(board,{cpWhite:10}).tone,'equal');
   assert.equal(positionSummary(board).tone,'pending');
 });
+
+test('a delivered mate reads as a game result, never M1', () => {
+  const mated = new ManualSession(); for (const m of ['f3', 'e5', 'g4', 'Qh4#']) mated.play(m);
+  assert.equal(positionSummary(mated.board()).score, '0-1');
+  const scholar = new ManualSession(); for (const m of ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qxf7#']) scholar.play(m);
+  assert.equal(positionSummary(scholar.board()).score, '1-0');
+  const open = new ManualSession().board();
+  assert.equal(positionSummary(open, { cpWhite: 10000 }).score, '1-0');
+  assert.equal(positionSummary(open, { cpWhite: -10000 }).score, '0-1');
+  assert.equal(positionSummary(open, { cpWhite: 9950 }).score, 'M1');
+});
