@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#111419" />
   <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight v2 — تقرير مباراتك المجاني</title>
-  <script type="module" crossorigin src="./assets/index-BiJd_XTL.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-Die63zH_.css">
+  <script type="module" crossorigin src="./assets/index-DODdgNmt.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CY7lV2zb.css">
 </head>
 <body>
   <div class="app-layout">
@@ -314,7 +314,14 @@
             <div class="screenshot-image-col">
               <span class="col-title">الصورة الملتقطة</span>
               <div class="screenshot-img-wrap">
-                <img id="screenshot-img-preview" alt="معاينة السكرين شوت" />
+                <div class="screenshot-image-stage">
+                  <img id="screenshot-img-preview" alt="معاينة السكرين شوت" draggable="false" />
+                  <div id="screenshot-crop-overlay" class="screenshot-crop-overlay" hidden></div>
+                </div>
+              </div>
+              <div class="screenshot-crop-help">
+                <span>✂️ اسحب بالماوس حول الرقعة المربعة لإعادة قراءتها بدقة.</span>
+                <button id="screenshot-rescan-original" class="btn-subtle-tool" type="button">إعادة فحص الصورة الأصلية ↻</button>
               </div>
             </div>
 
@@ -392,6 +399,11 @@
           <!-- Status Banner -->
           <div id="screenshot-scan-status" class="screenshot-status"></div>
 
+          <label id="screenshot-review-confirm" class="screenshot-review-confirm" hidden>
+            <input id="screenshot-review-toggle" type="checkbox" />
+            <span>راجعت مواقع القطع وتأكدت منها يدوياً قبل التحليل.</span>
+          </label>
+
           <!-- FEN Readout -->
           <div class="screenshot-fen-row">
             <label for="screenshot-fen-input">رمز FEN للوضعية:</label>
@@ -410,7 +422,7 @@
       </div>
     </div>
   </dialog>
-
+
 </body>
 </html>
 
