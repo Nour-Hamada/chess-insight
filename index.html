@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#111419" />
   <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight v3 — تحليل دقيق من الصورة</title>
-  <script type="module" crossorigin src="./assets/index-mQ1bVq4v.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-C13RPPvW.css">
+  <script type="module" crossorigin src="./assets/index-C7ASvz-p.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CNuKNrgM.css">
 </head>
 <body>
   <div class="app-layout">
@@ -391,9 +391,10 @@
               <div class="turn-select-wrap">
                 <span class="turn-label">صاحب الدور:</span>
                 <div class="turn-toggle-group">
-                  <button id="turn-white-btn" type="button" class="btn-turn active">⚪ دور الأبيض</button>
-                  <button id="turn-black-btn" type="button" class="btn-turn">⚫ دور الأسود</button>
+                  <button id="turn-white-btn" type="button" class="btn-turn" aria-pressed="false">⚪ دور الأبيض</button>
+                  <button id="turn-black-btn" type="button" class="btn-turn" aria-pressed="false">⚫ دور الأسود</button>
                 </div>
+                <p id="turn-hint" class="turn-hint" role="status"></p>
               </div>
             </div>
           </div>
