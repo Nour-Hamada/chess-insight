@@ -130,8 +130,10 @@ export async function recognizeGrayscaleBoard(source) {
     const max = Math.max(...scores);
     // Never turn a weak match into a confident FEN.
     const reliable = mean < 17 && max < 36;
-    if (!reliable) return null;
-    return { placement: toPlacement(classes), reliable: true,
+    // Preserve a low-confidence candidate for an editor, never silently
+    // let a competing model label the same gray board as a sure success.
+    return { placement: toPlacement(classes), reliable,
+      styleMatched: true,
       meanConfidence: 1 - mean / 55, minConfidence: 1 - max / 55,
       method: 'chesscom-gray-templates', meanError: mean, maxError: max };
   } finally {
