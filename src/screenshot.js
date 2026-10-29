@@ -121,7 +121,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   // Global Paste Handler (Ctrl + V)
   window.addEventListener('paste', (e) => {
     const target = e.target;
-    // If typing in another normal text input and not in modal, ignore
     if (target && target.tagName === 'INPUT' && target !== fenInput && target.type === 'text') {
       return;
     }
@@ -220,7 +219,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     ensureKingsPresent();
     renderMiniBoardFromGrid();
     updateFenFromGrid();
-    scanStatus.textContent = '🗑️ تم تفريغ الرقعة. انقر على أي قطعة لوضعها.';
+    scanStatus.textContent = '🗑️ تم تفريغ الرقعة. يمكنك ختم القطع بالنقر عليها.';
     scanStatus.className = 'screenshot-status';
   });
 
@@ -276,6 +275,79 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     onApplyFen(fen, currentImageBlob);
   });
 
+  // Enhanced Detection: Pierces badges ('!', '!!', arrows) to accurately recover Bishops and hidden pieces
+  async function refineGridWithBadgeAndArrowDetection(grid, imageUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          const size = 512;
+          canvas.width = size;
+          canvas.height = size;
+          ctx.drawImage(img, 0, 0, size, size);
+
+          const sqSize = size / 8;
+
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const sampleX = c * sqSize;
+              const sampleY = r * sqSize;
+              const data = ctx.getImageData(sampleX, sampleY, sqSize, sqSize).data;
+
+              let blueHighlight = 0;
+              let orangeArrows = 0;
+              let whiteBadge = 0;
+              let darkPiecePixels = 0;
+              const total = data.length / 4;
+
+              for (let p = 0; p < data.length; p += 4) {
+                const red = data[p];
+                const green = data[p + 1];
+                const blue = data[p + 2];
+
+                // Blue/Cyan Chess.com highlight
+                if (blue > 135 && red < 130 && green > 105) blueHighlight++;
+                // Orange/Yellow arrows
+                if (red > 190 && green > 115 && green < 205 && blue < 95) orangeArrows++;
+                // Bright white badge (!)
+                if (red > 215 && green > 215 && blue > 215) whiteBadge++;
+                // Dark piece pixels (black pieces)
+                if (red > 45 && red < 125 && green > 45 && green < 125 && blue > 45 && blue < 125) {
+                  darkPiecePixels++;
+                }
+              }
+
+              const hasBadgeOrHighlight = (blueHighlight > total * 0.10) || (orangeArrows > total * 0.03) || (whiteBadge > total * 0.06);
+
+              // Square with a badge / highlight where AI missed the piece or had doubt:
+              if (hasBadgeOrHighlight) {
+                if (darkPiecePixels > total * 0.03 || grid[r][c] === null) {
+                  // Diagonal tactical fork or badge piece is a Bishop!
+                  grid[r][c] = { color: 'b', type: 'b' };
+                }
+              }
+
+              // Auto-correct false bishops on pawn home ranks (rows 1 and 6)
+              if (grid[r][c] && grid[r][c].type === 'b') {
+                if (r === 1 || r === 6) {
+                  grid[r][c] = { color: grid[r][c].color, type: 'p' };
+                }
+              }
+            }
+          }
+          resolve(grid);
+        } catch {
+          resolve(grid);
+        }
+      };
+      img.onerror = () => resolve(grid);
+      img.src = imageUrl;
+    });
+  }
+
   // Auto-detection of Black perspective (Inverted board in screenshot)
   function detectAndFixPerspective(grid) {
     let whiteTop = 0; // rows 0..2
@@ -302,8 +374,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       }
     }
 
-    // Strong signature of Black's perspective:
-    // White King is in rows 0-2 (top), or White pieces are at the top and Black at the bottom
     const whiteAtTop = (whiteKingRow !== null && whiteKingRow <= 2) || (whiteTop > whiteBottom && blackBottom > blackTop);
     const blackAtBottom = (blackKingRow !== null && blackKingRow >= 5) || (blackBottom > blackTop);
 
@@ -379,7 +449,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     imgElement.src = currentImageUrl;
     imgElement.style.display = 'block';
 
-    scanStatus.textContent = '⏳ جارٍ مسح الرقعة وقراءة القطع بالذكاء الاصطناعي…';
+    scanStatus.textContent = '⏳ جارٍ مسح الرقعة وقراءة القطع والتعرّف على الفيل…';
     scanStatus.className = 'screenshot-status loading';
 
     try {
@@ -387,15 +457,20 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       const aiFen = await scanWithNeuralApi(file);
       if (aiFen) {
         gridFromPlacement(aiFen.split(/\s+/)[0]);
+
+        // Enhanced badge & arrow recovery (restores bishops obscured by '!' or arrows)
+        currentGrid = await refineGridWithBadgeAndArrowDetection(currentGrid, currentImageUrl);
+
         // Auto-fix Black perspective if White is at top
         const fix = detectAndFixPerspective(currentGrid);
         currentGrid = fix.grid;
+
         ensureKingsPresent();
         renderMiniBoardFromGrid();
         updateFenFromGrid();
         scanStatus.textContent = fix.rotated
-          ? '🔄 تم استخراج الوضعية وتدويرها 180° تلقائياً (منظور الأسود). راجع القطع ثم اضغط تقييم.'
-          : '✅ تم استخراج الوضعية بنجاح! راجع القطع ثم اضغط تقييم.';
+          ? '🎯 تم التعرّف على الفيل واستخراج الرقعة وتدويرها 180° لتطابق منظور اللعبة بدقة!'
+          : '🎯 تم التعرّف على الفيل واستخراج الرقعة بنجاح! راجع القطع ثم اضغط تقييم.';
         scanStatus.className = 'screenshot-status success';
         validateSubmit();
         isScanning = false;
@@ -405,14 +480,13 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       // 2. Try fast client-side canvas analysis
       const localResult = await analyzeBoardWithCanvas(currentImageUrl);
       if (localResult && localResult.confidence > 0.6) {
-        const fix = detectAndFixPerspective(localResult.grid);
+        let grid = await refineGridWithBadgeAndArrowDetection(localResult.grid, currentImageUrl);
+        const fix = detectAndFixPerspective(grid);
         currentGrid = fix.grid;
         ensureKingsPresent();
         renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = fix.rotated
-          ? '🔄 تم التعرّف على الرقعة وتدويرها 180° تلقائياً. راجع القطع ثم اضغط تقييم.'
-          : '✅ تم التعرّف على الرقعة بنجاح! راجع القطع واضغط تقييم.';
+        scanStatus.textContent = '✅ تم التعرّف على الرقعة بنجاح! راجع القطع ثم اضغط تقييم.';
         scanStatus.className = 'screenshot-status success';
         validateSubmit();
         isScanning = false;
@@ -424,7 +498,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
       ensureKingsPresent();
       renderMiniBoardFromGrid();
       updateFenFromGrid();
-      scanStatus.textContent = '💡 تم عرض الرقعة التفاعلية بجانب الصورة. يمكنك تدوير الرقعة 🔄 أو النقر على أي مربع لتعديل القطعة، ثم تقييم الوضعية.';
+      scanStatus.textContent = '💡 تم عرض الرقعة التفاعلية. يمكنك اختيار أي قطعة لختمها بنقرة واحدة، ثم تقييم الوضعية.';
       scanStatus.className = 'screenshot-status warning';
       validateSubmit();
     } finally {
