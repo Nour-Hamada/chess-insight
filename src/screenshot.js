@@ -211,12 +211,16 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     const x = end.x < start.x ? start.x - side : start.x;
     const y = end.y < start.y ? start.y - side : start.y;
     if (cropOverlay) {
+      // Position relative to the displayed image, not the surrounding stage
+      // (which may be wider when a tall screenshot is letterboxed).
+      const rect = imgElement.getBoundingClientRect();
+      const stage = imgElement.parentElement.getBoundingClientRect();
       cropOverlay.hidden = false;
       Object.assign(cropOverlay.style, {
-        left: (100 * x) + '%',
-        top: (100 * y) + '%',
-        width: (100 * side) + '%',
-        height: (100 * side) + '%',
+        left: (rect.left - stage.left + x * rect.width) + 'px',
+        top: (rect.top - stage.top + y * rect.height) + 'px',
+        width: (side * rect.width) + 'px',
+        height: (side * rect.height) + 'px',
       });
     }
     return { x, y, side };
