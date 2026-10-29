@@ -1,7 +1,6 @@
 // Local, confidence-aware screenshot recognition. No chess image is uploaded.
-const MODEL_CDN = 'https://cdn.jsdelivr.net/npm/@scoriiu/fenshot@0.1.5/model/chess-tiles-v2.onnx';
-const WASM_CDN = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.26.0/dist/';
-const ENGINE_ESM = 'https://esm.sh/@scoriiu/fenshot@0.1.5?bundle&target=es2022';
+// ONNX model and WASM assets are served by Chess Insight, not third-party CDNs.
+const STATIC_BASE = new URL('.', document.baseURI).href;
 let recognizerPromise;
 
 export function validatePlacement(placement) {
@@ -37,8 +36,11 @@ export function validatePlacement(placement) {
 
 async function getRecognizer() {
   if (!recognizerPromise) {
-    recognizerPromise = import(/* @vite-ignore */ ENGINE_ESM).then(({ createRecognizer, resolveOrientation }) => ({
-      recognizer: createRecognizer({ modelUrl: MODEL_CDN, wasmPaths: WASM_CDN }),
+    recognizerPromise = import('@scoriiu/fenshot').then(({ createRecognizer, resolveOrientation }) => ({
+      recognizer: createRecognizer({
+        modelUrl: new URL('models/chess-tiles-v2.onnx', STATIC_BASE).href,
+        wasmPaths: new URL('ort/', STATIC_BASE).href,
+      }),
       resolveOrientation,
     })).catch(error => {
       recognizerPromise = null; // A transient CDN failure must be retryable.
