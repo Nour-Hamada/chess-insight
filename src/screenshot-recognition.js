@@ -1,6 +1,6 @@
 // Local, confidence-aware screenshot recognition. No chess image is uploaded.
 // ONNX model and WASM assets are served by Chess Insight, not third-party CDNs.
-const STATIC_BASE = new URL('.', document.baseURI).href;
+const getStaticBase = () => new URL('.', document.baseURI).href;
 let recognizerPromise;
 
 export function validatePlacement(placement) {
@@ -38,8 +38,8 @@ async function getRecognizer() {
   if (!recognizerPromise) {
     recognizerPromise = import('@scoriiu/fenshot').then(({ createRecognizer, resolveOrientation }) => ({
       recognizer: createRecognizer({
-        modelUrl: new URL('models/chess-tiles-v2.onnx', STATIC_BASE).href,
-        wasmPaths: new URL('ort/', STATIC_BASE).href,
+        modelUrl: new URL('models/chess-tiles-v2.onnx', getStaticBase()).href,
+        wasmPaths: new URL('ort/', getStaticBase()).href,
       }),
       resolveOrientation,
     })).catch(error => {
