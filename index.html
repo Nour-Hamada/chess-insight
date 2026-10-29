@@ -20,6 +20,9 @@
       </div>
 
       <div class="header-actions">
+        <button id="open-screenshot-btn" class="btn btn-secondary header-btn highlight-btn" type="button" title="لصق أو رفع سكرين شوت رقعة الشطرنج">
+          <span>📷</span> لصق سكرين شوت
+        </button>
         <button id="manual-toggle" class="btn btn-secondary header-btn" type="button" aria-pressed="false">♟ تحليل يدوي</button>
         <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
           <span>📋</span> أدخل PGN
@@ -244,7 +247,9 @@
     <button id="promotion-cancel" class="btn btn-secondary" type="button">إلغاء</button>
   </dialog>
 
-  <!-- PGN Modal Dialog -->
+  
+
+    <!-- PGN Modal Dialog -->
   <dialog id="pgn-modal" class="pgn-dialog">
     <div class="pgn-modal-content panel">
       <div class="pgn-modal-head">
@@ -269,6 +274,103 @@
           <input id="pgn-modal-file" type="file" accept=".pgn,text/plain" hidden />
           <button id="load-btn" class="btn btn-primary" type="button">
             تحميل وعرض المباراة ←
+          </button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Screenshot / Image to FEN Modal -->
+  <dialog id="screenshot-modal" class="pgn-dialog screenshot-dialog" aria-labelledby="screenshot-modal-title">
+    <div class="pgn-modal-content panel screenshot-modal-content">
+      <div class="pgn-modal-head">
+        <div class="modal-title-wrap">
+          <span class="kicker">التعرّف البصري بالذكاء الاصطناعي</span>
+          <h3 id="screenshot-modal-title">📷 استخراج وتقييم الوضعية من سكرين شوت</h3>
+        </div>
+        <button id="close-screenshot-btn" class="close-modal-btn" type="button" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="pgn-modal-body screenshot-modal-body">
+        <!-- Dropzone / Empty State -->
+        <div id="screenshot-dropzone" class="screenshot-dropzone" tabindex="0">
+          <div class="dropzone-icon">📷</div>
+          <div class="dropzone-title">الصق لقطة الشاشة هنا مباشرة <strong>(Ctrl + V)</strong></div>
+          <p class="dropzone-sub">أو اسحب وأفلت صورة، أو انقر للاختيار من جهازك</p>
+          <div class="dropzone-badges">
+            <span class="badge">Chess.com</span>
+            <span class="badge">Lichess</span>
+            <span class="badge">لقطات شاشة رقمية</span>
+          </div>
+          <input id="screenshot-file-input" type="file" accept="image/*" hidden />
+        </div>
+
+        <!-- Preview Area (When Image Loaded) -->
+        <div id="screenshot-preview-area" class="screenshot-preview-area" hidden>
+          <div class="screenshot-split-grid">
+            <!-- Left: Pasted Image -->
+            <div class="screenshot-image-col">
+              <span class="col-title">الصورة الملتقطة</span>
+              <div class="screenshot-img-wrap">
+                <img id="screenshot-img-preview" alt="معاينة السكرين شوت" />
+              </div>
+            </div>
+
+            <!-- Right: Detected Board -->
+            <div class="screenshot-board-col">
+              <span class="col-title">الرقعة المستخرجة (انقر لتعديل أي قطعة)</span>
+              <div class="mini-board-wrap">
+                <div id="screenshot-mini-board" class="screenshot-mini-board" aria-label="الرقعة المستخرجة"></div>
+              </div>
+
+              <!-- Quick Piece Palette for Correction -->
+              <div id="screenshot-piece-palette" class="screenshot-piece-palette" hidden>
+                <div class="palette-row">
+                  <button type="button" data-piece="P" title="بيدق أبيض">♙</button>
+                  <button type="button" data-piece="N" title="حصان أبيض">♘</button>
+                  <button type="button" data-piece="B" title="فيل أبيض">♗</button>
+                  <button type="button" data-piece="R" title="رخ أبيض">♖</button>
+                  <button type="button" data-piece="Q" title="وزير أبيض">♕</button>
+                  <button type="button" data-piece="K" title="ملك أبيض">♔</button>
+                </div>
+                <div class="palette-row">
+                  <button type="button" data-piece="p" title="بيدق أسود">♟</button>
+                  <button type="button" data-piece="n" title="حصان أسود">♞</button>
+                  <button type="button" data-piece="b" title="فيل أسود">♝</button>
+                  <button type="button" data-piece="r" title="رخ أسود">♜</button>
+                  <button type="button" data-piece="q" title="وزير أسود">♛</button>
+                  <button type="button" data-piece="k" title="ملك أسود">♚</button>
+                  <button type="button" data-piece="none" title="تفريغ المربع" class="btn-clear-sq">✕</button>
+                </div>
+              </div>
+
+              <!-- Turn Selector -->
+              <div class="turn-select-wrap">
+                <span class="turn-label">صاحب الدور:</span>
+                <div class="turn-toggle-group">
+                  <button id="turn-white-btn" type="button" class="btn-turn active">⚪ دور الأبيض</button>
+                  <button id="turn-black-btn" type="button" class="btn-turn">⚫ دور الأسود</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status Banner -->
+          <div id="screenshot-scan-status" class="screenshot-status"></div>
+
+          <!-- FEN Readout -->
+          <div class="screenshot-fen-row">
+            <label for="screenshot-fen-input">رمز FEN للوضعية:</label>
+            <input id="screenshot-fen-input" type="text" dir="ltr" spellcheck="false" />
+          </div>
+        </div>
+      </div>
+
+      <div class="pgn-modal-footer screenshot-modal-footer">
+        <button id="screenshot-reset-btn" class="btn btn-ghost" type="button">صورة أخرى ↺</button>
+        <div class="modal-main-actions">
+          <button id="screenshot-evaluate-btn" class="btn btn-primary btn-evaluate-action" type="button" disabled>
+            🚀 تقييم الوضعية فوراً بمحرك Stockfish 19
           </button>
         </div>
       </div>

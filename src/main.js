@@ -3,6 +3,7 @@ import { getPieceSvg } from './pieces.js';
 import './style.css';
 import { winChance, toUci, classifyMove, parseEngineLine } from './review.js';
 import { ManualSession, positionSummary } from './manual.js';
+import { initScreenshotFeature } from './screenshot.js';
 
 const START_FEN = new Chess().fen();
 const DEMO = `[Event "Chess Insight Demo"]
@@ -1443,3 +1444,27 @@ function loadSharedPosition() {
 loadSharedPosition();
 addEventListener('hashchange', loadSharedPosition);
 
+
+
+function applyPositionFromScreenshot(fen) {
+  try {
+    if (analysisRunning || hintRunning) return;
+    const session = new ManualSession(fen);
+    if (!manualMode) enterManualMode(true);
+    manualSession = session;
+    manualShowBest = true;
+    selectedSquare = null;
+    currentHint = null;
+    renderBoard();
+    renderMoves();
+    requestManualEvaluation();
+    status('تم استخراج وضعية السكرين شوت، وجارٍ تقييم الموقف بمحرك Stockfish 19…', 'success');
+  } catch (err) {
+    status('تعذر تحميل الوضعية: ' + (err.message || err), 'error');
+  }
+}
+
+initScreenshotFeature({
+  onApplyFen: applyPositionFromScreenshot,
+  onStatus: status
+});

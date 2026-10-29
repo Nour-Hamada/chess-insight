@@ -17,7 +17,7 @@
   },
   "devDependencies": {
     "esbuild": "0.25.12",
-    "linkedom": "^0.18.12",
+    "linkedom": "^0.18.14",
     "vite": "^6.3.0"
   }
 }
