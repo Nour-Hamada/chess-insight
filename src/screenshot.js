@@ -38,13 +38,11 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   // 8x8 piece grid: null or { color: 'w'|'b', type: 'p'|'n'|'b'|'r'|'q'|'k' }
   let currentGrid = createInitialGrid();
   let activeTurn = null; // Chosen explicitly by the user; never assumed.
-  let activeSquare = null;
   let currentImageBlob = null;
   let currentImageUrl = null;
   let isScanning = false;
   let scanGeneration = 0;
   let cropStart = null;
-  let currentBrush = 'cursor'; // 'cursor', 'none', or piece char 'P', 'b', etc.
 
   const blankGrid = () => Array.from({ length: 8 }, () => Array(8).fill(null));
   
@@ -81,27 +79,22 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     } catch {
       modal.removeAttribute('open');
     }
-    closePalette();
   }
 
   function resetView() {
     scanGeneration++; // Invalidates a previous asynchronous recognition attempt.
     currentGrid = createInitialGrid();
     clearTurnChoice();
-    activeSquare = null;
     currentImageBlob = null;
     currentImageUrl = null;
     isScanning = false;
     if (cropOverlay) cropOverlay.hidden = true;
-    currentBrush = 'cursor';
-    updateBrushActiveState();
     dropzone.hidden = false;
     previewArea.hidden = true;
     imgElement.src = '';
     fenInput.value = '';
     scanStatus.textContent = '';
     scanStatus.className = 'screenshot-status';
-    closePalette();
     renderMiniBoardFromGrid();
     updateFenFromGrid();
   }
@@ -286,62 +279,6 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     }
   }
 
-  // Transformation Tool Buttons
-  btnRotate180?.addEventListener('click', () => {
-    currentGrid = rotateGrid180(currentGrid);
-    renderMiniBoardFromGrid();
-    updateFenFromGrid();
-    scanStatus.textContent = '🔄 تم تدوير الرقعة 180° بنجاح.';
-    scanStatus.className = 'screenshot-status';
-  });
-
-  btnSwapColors?.addEventListener('click', () => {
-    currentGrid = swapGridColors(currentGrid);
-    renderMiniBoardFromGrid();
-    updateFenFromGrid();
-    scanStatus.textContent = '⚖️ تم تبديل ألوان القطع (الأبيض ⇋ الأسود).';
-    scanStatus.className = 'screenshot-status';
-  });
-
-  btnFlipV?.addEventListener('click', () => {
-    currentGrid = flipGridV(currentGrid);
-    renderMiniBoardFromGrid();
-    updateFenFromGrid();
-    scanStatus.textContent = '⇅ تم عكس الصفوف رأسياً.';
-    scanStatus.className = 'screenshot-status';
-  });
-
-  btnFlipH?.addEventListener('click', () => {
-    currentGrid = flipGridH(currentGrid);
-    renderMiniBoardFromGrid();
-    updateFenFromGrid();
-    scanStatus.textContent = '⇄ تم عكس الأعمدة أفقياً.';
-    scanStatus.className = 'screenshot-status';
-  });
-
-  btnClearBoard?.addEventListener('click', () => {
-    currentGrid = Array(8).fill(null).map(() => Array(8).fill(null));
-    renderMiniBoardFromGrid();
-    updateFenFromGrid();
-    scanStatus.textContent = '🗑️ تم تفريغ الرقعة. يمكنك ختم القطع بالنقر عليها.';
-    scanStatus.className = 'screenshot-status';
-  });
-
-  // Brush piece buttons handling
-  function updateBrushActiveState() {
-    brushButtons.forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.brush === currentBrush);
-    });
-  }
-
-  brushButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      currentBrush = btn.dataset.brush;
-      updateBrushActiveState();
-      closePalette();
-    });
-  });
-
   // FEN manual editing
   fenInput?.addEventListener('input', () => {
     const val = fenInput.value.trim();
@@ -465,7 +402,8 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         gridFromPlacement(result.placement);
             renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح! حدد صاحب الدور واضغط تقييم.';
+        scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح تلقائياً! حدد صاحب الدور (أبيض أو أسود) واضغط تقييم.';
+        scanStatus.className = 'screenshot-status success';
         scanStatus.className = 'screenshot-status success';
       } else {
         currentGrid = blankGrid(); // Never display the starting board as a detected result.
@@ -571,7 +509,7 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
         const file = 'abcdefgh'[c];
         const rank = 8 - r;
         const squareName = `${file}${rank}`;
-        sq.title = `${squareName}: انقر لتعديل القطعة`;
+        sq.title = squareName;
 
         // Rank number on leftmost column
         if (c === 0) {
@@ -597,79 +535,10 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
           sq.appendChild(svgWrap);
         }
 
-        sq.addEventListener('click', (e) => {
-          e.stopPropagation();
-          handleSquareClick(sq, r, c);
-        });
-
         miniBoard.appendChild(sq);
       }
     }
   }
-
-  // Fast Square Click: applies brush immediately, or opens popup if cursor mode
-  function handleSquareClick(sq, r, c) {
-    if (currentBrush === 'none') {
-      currentGrid[r][c] = null;
-        renderMiniBoardFromGrid();
-      updateFenFromGrid();
-    } else if (currentBrush !== 'cursor') {
-      currentGrid[r][c] = {
-        color: currentBrush === currentBrush.toUpperCase() ? 'w' : 'b',
-        type: currentBrush.toLowerCase()
-      };
-        renderMiniBoardFromGrid();
-      updateFenFromGrid();
-    } else {
-      openPaletteForSquare(sq, r, c);
-    }
-  }
-
-  // Piece Palette Popup
-  function openPaletteForSquare(sq, r, c) {
-    if (!piecePalette) return;
-    activeSquare = { r, c, element: sq };
-    const rect = sq.getBoundingClientRect();
-    const modalRect = modal.getBoundingClientRect();
-
-    piecePalette.style.top = `${rect.bottom - modalRect.top + 4}px`;
-    piecePalette.style.left = `${Math.min(rect.left - modalRect.left, modalRect.width - 240)}px`;
-    piecePalette.hidden = false;
-
-    document.querySelectorAll('.mini-sq').forEach(el => el.classList.remove('selected'));
-    sq.classList.add('selected');
-  }
-
-  function closePalette() {
-    if (piecePalette) piecePalette.hidden = true;
-    activeSquare = null;
-    document.querySelectorAll('.mini-sq').forEach(el => el.classList.remove('selected'));
-  }
-
-  // Close palette when clicking anywhere else
-  document.addEventListener('click', (e) => {
-    if (piecePalette && !piecePalette.hidden && !piecePalette.contains(e.target) && !e.target.closest('.mini-sq')) {
-      closePalette();
-    }
-  });
-
-  piecePalette?.querySelectorAll('[data-piece]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!activeSquare) return;
-      const code = btn.dataset.piece; // 'P', 'p', 'none', etc.
-      if (code === 'none') {
-        currentGrid[activeSquare.r][activeSquare.c] = null;
-      } else {
-        currentGrid[activeSquare.r][activeSquare.c] = {
-          color: code === code.toUpperCase() ? 'w' : 'b',
-          type: code.toLowerCase()
-        };
-      }
-      closePalette();
-        renderMiniBoardFromGrid();
-      updateFenFromGrid();
-    });
-  });
 
   syncTurnUi();
 

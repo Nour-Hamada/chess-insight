@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePlacement } from '../src/screenshot-recognition.js';
+import { validatePlacement, cleanPlacement } from '../src/screenshot-recognition.js';
 
 const valid = '4k3/8/8/8/8/8/8/4K3';
 test('accepts a valid minimal chess placement', () => {
@@ -35,4 +35,11 @@ test('rejects bishop explosion from the former overlay-detection heuristic', () 
 test('permits a real promoted piece only if a pawn has disappeared', () => {
   assert.equal(validatePlacement('4k3/8/8/8/8/8/PPPPPPP1/RNBQKBBR').ok, true);
   assert.equal(validatePlacement('4k3/8/8/8/8/8/PPPPPPPP/RNBQKBBR').ok, false);
+});
+
+test('cleanPlacement removes impossible pawns on back ranks caused by video UI overlays', () => {
+  const withOverlay = '1P6/3Q1ppk/4p2p/2p1P3/1R2N3/6P1/q3rP1P/5K2';
+  const cleaned = cleanPlacement(withOverlay);
+  assert.equal(cleaned, '8/3Q1ppk/4p2p/2p1P3/1R2N3/6P1/q3rP1P/5K2');
+  assert.equal(validatePlacement(cleaned).ok, true);
 });

@@ -4,6 +4,42 @@ import { recognizeGrayscaleBoard } from './grayscale-board-recognition.js';
 const getStaticBase = () => new URL('.', document.baseURI).href;
 let recognizerPromise;
 
+export function cleanPlacement(placement) {
+  if (typeof placement !== 'string') return placement;
+  const rows = placement.trim().split('/');
+  if (rows.length !== 8) return placement;
+
+  // Pawns on the 1st rank (row index 7) or 8th rank (row index 0) are strictly impossible in chess.
+  // In screenshots, badges (like inaccuracy marks, buttons, or board coordinates) frequently get classified as pawns on edge ranks.
+  const cleanEdgeRow = (row) => {
+    let cells = [];
+    for (const ch of row) {
+      if (/^[1-8]$/.test(ch)) {
+        for (let i = 0; i < Number(ch); i++) cells.push(null);
+      } else if (ch === 'P' || ch === 'p') {
+        cells.push(null);
+      } else {
+        cells.push(ch);
+      }
+    }
+    if (cells.length !== 8) return row;
+    let out = '', empty = 0;
+    for (const c of cells) {
+      if (!c) empty++;
+      else {
+        if (empty > 0) { out += empty; empty = 0; }
+        out += c;
+      }
+    }
+    if (empty > 0) out += empty;
+    return out || '8';
+  };
+
+  rows[0] = cleanEdgeRow(rows[0]);
+  rows[7] = cleanEdgeRow(rows[7]);
+  return rows.join('/');
+}
+
 export function validatePlacement(placement) {
   if (typeof placement !== 'string') return { ok: false, reason: 'الترميز غير معروف.' };
   const rows = placement.trim().split('/');
@@ -111,11 +147,12 @@ export async function recognizeScreenshot(source) {
     }
   } catch (error) { console.debug('Model crop scanner not available:', error); }
 
-  const oriented = resolveOrientation(result.placement);
-  const placement = oriented.placement;
+  const rawPlacement = cleanPlacement(result.placement);
+  const oriented = resolveOrientation(rawPlacement);
+  const placement = cleanPlacement(oriented.placement);
   const validation = validatePlacement(placement);
   const scanned = {
-    placement: validation.ok ? placement : null,
+    placement: placement,
     reliable: Boolean(result.reliable && result.plausible && validation.ok),
     reason: validation.reason || (!result.reliable || !result.plausible
       ? 'بعض القطع غير مؤكدة، ولن نعتمد النتيجة تلقائياً.' : ''),
