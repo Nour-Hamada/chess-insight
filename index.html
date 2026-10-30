@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#111419" />
   <meta name="description" content="حلّل مباراة الشطرنج مجاناً باستخدام Stockfish 19 داخل متصفحك بدون خوادم. تقييم كل نقلة، الدقة، ومنحنى الأفضلية." />
   <title>Chess Insight v3 — تحليل دقيق من الصورة</title>
-  <script type="module" crossorigin src="./assets/index-BJfVNOx4.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-CycnAw7G.css">
+  <script type="module" crossorigin src="./assets/index-xFO4Vfhc.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-BhNInuKK.css">
 </head>
 <body>
   <div class="app-layout">
@@ -329,62 +329,9 @@
 
             <!-- Right: Detected Board -->
             <div class="screenshot-board-col">
-              <span class="col-title">الرقعة المستخرجة (اختر قطعة لوضعها، أو انقر للتعديل)</span>
+              <span class="col-title">الرقعة المستخرجة</span>
               <div class="mini-board-wrap">
                 <div id="screenshot-mini-board" class="screenshot-mini-board" aria-label="الرقعة المستخرجة"></div>
-              </div>
-
-              <!-- Fast Orientation & Transform Tools -->
-              <div class="board-transform-toolbar">
-                <button id="btn-rotate-180" type="button" class="btn-subtle-tool" title="تدوير 180° (عكس منظور الأبيض والأسود)">🔄 تدوير 180° (عكس المنظور)</button>
-                <button id="btn-swap-colors" type="button" class="btn-subtle-tool" title="تبديل ألوان جميع القطع">⚖️ تبديل الألوان</button>
-                <button id="btn-flip-v" type="button" class="btn-subtle-tool" title="عكس رأسي (تبديل الصفوف)">⇅ عكس رأسي</button>
-                <button id="btn-flip-h" type="button" class="btn-subtle-tool" title="عكس أفقي (تبديل الأعمدة)">⇄ عكس أفقي</button>
-                <button id="btn-clear-board" type="button" class="btn-subtle-tool danger" title="مسح جميع القطع">🗑️ تفريغ</button>
-              </div>
-
-              <!-- Permanent Fast Piece Brush Bar (Click piece, then click any square) -->
-              <div class="editor-piece-bar">
-                <div class="editor-pieces-row">
-                  <button type="button" class="tool-piece active" data-brush="cursor" title="وضع النقر الحر">👆</button>
-                  <div class="tool-sep"></div>
-                  <button type="button" class="tool-piece" data-brush="P" title="بيدق أبيض">♙</button>
-                  <button type="button" class="tool-piece" data-brush="N" title="حصان أبيض">♘</button>
-                  <button type="button" class="tool-piece" data-brush="B" title="فيل أبيض">♗</button>
-                  <button type="button" class="tool-piece" data-brush="R" title="رخ أبيض">♖</button>
-                  <button type="button" class="tool-piece" data-brush="Q" title="وزير أبيض">♕</button>
-                  <button type="button" class="tool-piece" data-brush="K" title="ملك أبيض">♔</button>
-                  <div class="tool-sep"></div>
-                  <button type="button" class="tool-piece" data-brush="p" title="بيدق أسود">♟</button>
-                  <button type="button" class="tool-piece" data-brush="n" title="حصان أسود">♞</button>
-                  <button type="button" class="tool-piece" data-brush="b" title="فيل أسود">♝</button>
-                  <button type="button" class="tool-piece" data-brush="r" title="رخ أسود">♜</button>
-                  <button type="button" class="tool-piece" data-brush="q" title="وزير أسود">♛</button>
-                  <button type="button" class="tool-piece" data-brush="k" title="ملك أسود">♚</button>
-                  <div class="tool-sep"></div>
-                  <button type="button" class="tool-piece tool-erase" data-brush="none" title="تفريغ المربع">✕</button>
-                </div>
-              </div>
-
-              <!-- Quick Piece Palette Popup for Correction -->
-              <div id="screenshot-piece-palette" class="screenshot-piece-palette" hidden>
-                <div class="palette-row">
-                  <button type="button" data-piece="P" title="بيدق أبيض">♙</button>
-                  <button type="button" data-piece="N" title="حصان أبيض">♘</button>
-                  <button type="button" data-piece="B" title="فيل أبيض">♗</button>
-                  <button type="button" data-piece="R" title="رخ أبيض">♖</button>
-                  <button type="button" data-piece="Q" title="وزير أبيض">♕</button>
-                  <button type="button" data-piece="K" title="ملك أبيض">♔</button>
-                </div>
-                <div class="palette-row">
-                  <button type="button" data-piece="p" title="بيدق أسود">♟</button>
-                  <button type="button" data-piece="n" title="حصان أسود">♞</button>
-                  <button type="button" data-piece="b" title="فيل أسود">♝</button>
-                  <button type="button" data-piece="r" title="رخ أسود">♜</button>
-                  <button type="button" data-piece="q" title="وزير أسود">♛</button>
-                  <button type="button" data-piece="k" title="ملك أسود">♚</button>
-                  <button type="button" data-piece="none" title="تفريغ المربع" class="btn-clear-sq">✕</button>
-                </div>
               </div>
 
               <!-- Turn Selector -->
