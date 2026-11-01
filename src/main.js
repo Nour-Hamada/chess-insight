@@ -1,7 +1,8 @@
 import { Chess } from 'chess.js';
 import { getPieceSvg } from './pieces.js';
 import './style.css';
-import { winChance, toUci, classifyMove, parseEngineLine } from './review.js';
+import { getMoveBadgeSvg } from './badge-icons.js';
+import { winChance, toUci, isBookMove, classifyMove, parseEngineLine } from './review.js';
 import { ManualSession, positionSummary } from './manual.js';
 import { initScreenshotFeature } from './screenshot.js';
 
@@ -426,11 +427,52 @@ async function evaluateManualPosition() {
     }
     if (!manualMode || version !== manualEvalVersion) return;
     manualEvaluation = result;
+
+    // Classify the last manual move if not yet classified
+    if (manualSession?.lastMove) {
+      const lm = manualSession.lastMove;
+      if (!lm.category) {
+        const uci = toUci(lm);
+        if (isBookMove(lm.before, uci)) {
+          lm.category = 'book';
+          lm.accuracy = 100;
+          lm.winLoss = 0;
+        } else {
+          let best = lm.prevEval;
+          if (!best) {
+            for (const [k, v] of manualEvalCache.entries()) {
+              if (k.startsWith(lm.before)) { best = v; break; }
+            }
+          }
+          if (best) {
+            const played = { cpWhite: result.cpWhite };
+            const second = best.lines?.find(line => line.best !== best.best) || null;
+            const classification = classifyMove({ move: lm, best, played, second });
+            lm.category = classification.category;
+            lm.accuracy = classification.accuracy;
+            lm.winLoss = classification.winLoss;
+            lm.cpLoss = classification.cpLoss;
+          } else if (result.best) {
+            const mover = lm.color === 'w' ? 1 : -1;
+            const afterAdvantage = result.cpWhite * mover;
+            if (afterAdvantage > 200) lm.category = 'best';
+            else if (afterAdvantage > 50) lm.category = 'good';
+            else if (afterAdvantage < -300) lm.category = 'blunder';
+            else if (afterAdvantage < -100) lm.category = 'mistake';
+            else lm.category = 'good';
+            lm.accuracy = 85;
+            lm.winLoss = 0;
+          }
+        }
+      }
+    }
+
     if (manualShowBest && result.best && result.best !== '(none)') {
       currentHint = { fen, from: result.best.slice(0, 2), to: result.best.slice(2, 4), cp: result.cpWhite,
         text: `أفضل نقلة: ${result.bestSan || uciToSan(fen, result.best)}` };
     }
     renderBoard();
+    renderMoves();
     status(`${positionSummary(board, result).title} · التقييم محدث للوضعية الحالية.`, 'success');
   } catch (err) {
     if (manualMode && version === manualEvalVersion) {
@@ -447,12 +489,24 @@ async function evaluateManualPosition() {
 function playManualMove(input) {
   if (!manualMode) return;
   try {
+    const prevEval = manualEvaluation;
     const move = manualSession.play(input);
+    move.prevEval = prevEval;
+
+    // Check if it's a known book opening move immediately
+    const uci = toUci(move);
+    if (isBookMove(move.before, uci)) {
+      move.category = 'book';
+      move.accuracy = 100;
+      move.winLoss = 0;
+    }
+
     playMoveSound(Boolean(move.captured));
     selectedSquare = null;
     manualShowBest = false;
     byId('manual-error').textContent = '';
     byId('manual-move-input').value = '';
+    renderBoard();
     renderMoves();
     requestManualEvaluation();
     updateActiveMove();
@@ -466,6 +520,8 @@ function navigateManual(cursor) {
   if (before !== manualSession.cursor) playMoveSound();
   manualShowBest = false;
   byId('manual-error').textContent = '';
+  renderBoard();
+  renderMoves();
   requestManualEvaluation();
   updateActiveMove();
 }
@@ -534,22 +590,45 @@ function renderBoard() {
     const sq = document.createElement('div');
     sq.className = `square ${(entry.r + entry.c) % 2 === 0 ? 'light' : 'dark'}`;
     sq.dataset.square = entry.square;
+    const currentTurn = currentFen.split(' ')[1] || 'w';
+    sq.setAttribute('role', 'button'); sq.tabIndex = 0;
+    sq.setAttribute('aria-label', entry.square + (entry.piece ? ` ${entry.piece.color === 'w' ? 'أبيض' : 'أسود'}` : ' فارغ'));
     if (manualMode) {
-      sq.setAttribute('role', 'button'); sq.tabIndex = 0;
-      sq.setAttribute('aria-label', entry.square + (entry.piece ? ` ${entry.piece.color === 'w' ? 'أبيض' : 'أسود'}` : ' فارغ'));
       if (selectedSquare === entry.square) sq.classList.add('manual-selected');
       if (legalTargets.some(move => move.to === entry.square)) sq.classList.add(entry.piece ? 'manual-capture-target' : 'manual-legal-target');
-      sq.addEventListener('click', () => selectManualSquare(entry.square));
-      sq.addEventListener('keydown', event => {
-        if (['Enter', ' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); selectManualSquare(entry.square); }
-      });
-      sq.addEventListener('dragover', event => event.preventDefault());
-      sq.addEventListener('drop', event => {
-        event.preventDefault(); manualDragTime = Date.now();
-        const from = event.dataTransfer.getData('text/plain');
-        if (/^[a-h][1-8]$/.test(from)) chooseManualDestination(from, entry.square);
-      });
     }
+    sq.addEventListener('click', () => {
+      if (!manualMode) {
+        if (entry.piece && entry.piece.color === currentTurn) {
+          enterManualMode(false);
+          selectManualSquare(entry.square);
+        }
+      } else {
+        selectManualSquare(entry.square);
+      }
+    });
+    sq.addEventListener('keydown', event => {
+      if (['Enter', ' '].includes(event.key)) {
+        event.preventDefault(); event.stopPropagation();
+        if (!manualMode) {
+          if (entry.piece && entry.piece.color === currentTurn) {
+            enterManualMode(false);
+            selectManualSquare(entry.square);
+          }
+        } else {
+          selectManualSquare(entry.square);
+        }
+      }
+    });
+    sq.addEventListener('dragover', event => event.preventDefault());
+    sq.addEventListener('drop', event => {
+      event.preventDefault(); manualDragTime = Date.now();
+      const from = event.dataTransfer.getData('text/plain');
+      if (/^[a-h][1-8]$/.test(from)) {
+        if (!manualMode) enterManualMode(false);
+        chooseManualDestination(from, entry.square);
+      }
+    });
 
     if (last && (last.from === entry.square || last.to === entry.square)) {
       sq.classList.add('last-move');
@@ -588,10 +667,13 @@ function renderBoard() {
         pieceWrap.className = 'piece-svg-wrap';
         pieceWrap.dataset.piece = entry.piece.color + entry.piece.type;
         pieceWrap.innerHTML = svgCode;
-        const isTurnPiece = manualMode && manualBoard ? (entry.piece.color === manualBoard.turn?.() && !manualBoard.isGameOver?.()) : false;
+        const isTurnPiece = manualMode && manualBoard
+          ? (entry.piece.color === manualBoard.turn?.() && !manualBoard.isGameOver?.())
+          : (entry.piece.color === currentTurn);
         if (isTurnPiece) {
           pieceWrap.draggable = true;
           pieceWrap.addEventListener('dragstart', event => {
+            if (!manualMode) enterManualMode(false);
             selectedSquare = entry.square;
             event.dataTransfer.setData('text/plain', entry.square);
             event.dataTransfer.effectAllowed = 'move';
@@ -603,17 +685,16 @@ function renderBoard() {
     }
 
     // Move classification badge on the target square of the last move (Chess.com style)
-    if (!manualMode && last && last.to === entry.square && analyses && position > 0) {
-      const moveInfo = analyses.moves[position - 1];
-      if (moveInfo && moveInfo.category) {
-        const catMeta = LABELS.find(x => x[0] === moveInfo.category);
-        if (catMeta) {
-          const badge = document.createElement('div');
-          badge.className = `square-badge badge-${moveInfo.category}`;
-          badge.textContent = catMeta[2];
-          badge.title = `${catMeta[1]}`;
-          sq.appendChild(badge);
-        }
+    const activeMove = manualMode ? manualSession?.lastMove : (analyses && position > 0 ? analyses.moves[position - 1] : null);
+    if (last && last.to === entry.square && activeMove && activeMove.category) {
+      const catMeta = LABELS.find(x => x[0] === activeMove.category);
+      const svgIcon = getMoveBadgeSvg(activeMove.category);
+      if (svgIcon) {
+        const badge = document.createElement('div');
+        badge.className = `square-badge badge-${activeMove.category}`;
+        badge.innerHTML = svgIcon;
+        badge.title = `${catMeta ? catMeta[1] : activeMove.category}${activeMove.accuracy != null ? ` (${Math.round(activeMove.accuracy)}%)` : ''}`;
+        sq.appendChild(badge);
       }
     }
 
@@ -628,7 +709,7 @@ function renderBoard() {
   if (displayedPosition > 0) {
     const m = displayedMoves[displayedPosition - 1];
     desc = `${Number(m.before.split(' ')[5])}${m.color === 'w' ? '.' : '...'} ${m.san}`;
-    const info = manualMode ? null : analyses?.moves[position - 1];
+    const info = manualMode ? (m.category ? { category: m.category, accuracy: m.accuracy, winLoss: m.winLoss } : null) : analyses?.moves[position - 1];
     if (info) {
       const lbl = LABELS.find(x => x[0] === info.category);
       desc += ` · ${lbl?.[1] || ''} · دقة ${formatNum(info.accuracy)}%`;
@@ -692,7 +773,7 @@ function renderMoves() {
 
     for (let j = i; j < Math.min(i + 2, displayedMoves.length); j++) {
       const m = displayedMoves[j];
-      const info = manualMode ? null : analyses?.moves[j];
+      const info = manualMode ? (m.category ? { category: m.category, accuracy: m.accuracy, winLoss: m.winLoss } : null) : analyses?.moves[j];
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'move-chip' + (activePosition === j + 1 ? ' active' : '');

@@ -457,33 +457,45 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
 /* Square Classification Badges (Chess.com Move Review style) */
 .square-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 22px;
-  height: 22px;
+  top: -3px;
+  right: -3px;
+  width: clamp(22px, 32%, 28px);
+  height: clamp(22px, 32%, 28px);
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 11px;
-  font-weight: 900;
-  z-index: 5;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
+  z-index: 10;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6));
   user-select: none;
   pointer-events: none;
-  line-height: 1;
+  animation: badgePop 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.badge-brilliant { background: #21bcc7; color: #fff; }
-.badge-great { background: #5b8bb0; color: #fff; }
-.badge-book { background: #d5a47e; color: #fff; font-size: 10px; }
-.badge-best { background: #81b64c; color: #fff; }
-.badge-excellent { background: #96bc76; color: #fff; }
-.badge-good { background: #86b59b; color: #fff; }
-.badge-inaccuracy { background: #f7c631; color: #1f1f1f; }
-.badge-mistake { background: #ffa459; color: #fff; }
-.badge-miss { background: #fa7069; color: #fff; }
-.badge-blunder { background: #fa412d; color: #fff; }
+.square-badge svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@keyframes badgePop {
+  0% {
+    transform: scale(0.2) rotate(-12deg);
+    opacity: 0;
+  }
+  75% {
+    transform: scale(1.18) rotate(3deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.badge-brilliant { filter: drop-shadow(0 0 7px rgba(33, 188, 199, 0.65)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
+.badge-great { filter: drop-shadow(0 0 6px rgba(91, 139, 176, 0.55)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
+.badge-best { filter: drop-shadow(0 0 6px rgba(129, 182, 76, 0.55)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
+.badge-blunder { filter: drop-shadow(0 0 7px rgba(250, 65, 45, 0.65)) drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6)); }
 
 .piece-svg-wrap svg {
   width: 100%;
@@ -1447,10 +1459,10 @@ button, select { line-height: 1.5; }
 .manual-move-form input { min-width: 0; flex: 1; width: 100%; background: var(--bg-input); border: 1px solid var(--border-light); border-radius: 6px; color: var(--text-main); padding: 9px 11px; font: 500 16px var(--font-latin); }
 .manual-error { margin: 0; padding: 7px 9px; color: #ffc4bc; background: #4b302b; border-radius: 5px; font-size: 12px; }
 .manual-error:empty { display: none; }
-.manual-mode .square { cursor: pointer; }
-.manual-mode .piece-svg-wrap { pointer-events: auto; }
-.manual-mode .piece-svg-wrap[draggable="true"] { cursor: grab; }
-.manual-mode .piece-svg-wrap svg { pointer-events: none; }
+.square { cursor: pointer; }
+.piece-svg-wrap { pointer-events: auto; }
+.piece-svg-wrap[draggable="true"] { cursor: grab; }
+.piece-svg-wrap svg { pointer-events: none; }
 .square.manual-selected { box-shadow: inset 0 0 0 3px #4e8e29; }
 .square.manual-legal-target::after { content: ''; position: absolute; width: 23%; height: 23%; border-radius: 50%; background: rgba(47, 78, 34, .45); pointer-events: none; }
 .square.manual-capture-target::after { content: ''; position: absolute; inset: 3%; border: 4px solid rgba(47, 78, 34, .5); border-radius: 50%; pointer-events: none; }
