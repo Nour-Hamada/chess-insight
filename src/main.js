@@ -45,6 +45,11 @@ let searchRunning = false;
 let manualMode = false;
 let manualSession = null;
 let selectedSquare = null;
+let editorMode = false;
+let editorPieces = {};
+let editorTurn = 'w';
+let selectedPaletteTool = null;
+let editorSelectedBoardSquare = null;
 let pendingPromotion = null;
 let manualEvaluation = null;
 let manualEvalVersion = 0;
@@ -326,6 +331,211 @@ function playMoveSound(capture = false) {
   } catch {} // A sound must never block navigation.
 }
 
+
+function fenToPieces(fen) {
+  const placement = (fen || '').trim().split(/\s+/)[0];
+  const rows = placement.split('/');
+  const pieces = {};
+  for (let r = 0; r < 8; r++) {
+    const row = rows[r] || '8';
+    let c = 0;
+    for (const ch of row) {
+      if (/[1-8]/.test(ch)) c += parseInt(ch, 10);
+      else if (/[a-zA-Z]/.test(ch) && c < 8) {
+        const sq = 'abcdefgh'[c] + (8 - r);
+        pieces[sq] = { color: ch === ch.toUpperCase() ? 'w' : 'b', type: ch.toLowerCase() };
+        c++;
+      }
+    }
+  }
+  return pieces;
+}
+
+function piecesToFen(pieces, turn = 'w') {
+  const rows = [];
+  for (let r = 8; r >= 1; r--) {
+    let row = '';
+    let empty = 0;
+    for (let c = 0; c < 8; c++) {
+      const file = 'abcdefgh'[c];
+      const sq = file + r;
+      const p = pieces[sq];
+      if (p) {
+        if (empty > 0) { row += empty; empty = 0; }
+        row += p.color === 'w' ? p.type.toUpperCase() : p.type.toLowerCase();
+      } else empty++;
+    }
+    if (empty > 0) row += empty;
+    rows.push(row);
+  }
+  return `${rows.join('/')} ${turn} - - 0 1`;
+}
+
+function initEditorPalette() {
+  const bContainer = byId('editor-black-pieces');
+  const wContainer = byId('editor-white-pieces');
+  if (!bContainer || !wContainer) return;
+  bContainer.replaceChildren();
+  wContainer.replaceChildren();
+
+  const types = ['k', 'q', 'r', 'b', 'n', 'p'];
+  for (const t of types) {
+    const bBtn = document.createElement('button');
+    bBtn.type = 'button';
+    bBtn.className = 'palette-btn';
+    bBtn.dataset.color = 'b';
+    bBtn.dataset.type = t;
+    bBtn.title = `قطعة أسود: ${t.toUpperCase()}`;
+    bBtn.innerHTML = getPieceSvg('b', t);
+    bBtn.draggable = true;
+    bBtn.addEventListener('dragstart', event => {
+      event.dataTransfer.setData('text/plain', `palette:b:${t}`);
+      event.dataTransfer.effectAllowed = 'copy';
+    });
+    bBtn.addEventListener('click', () => {
+      if (selectedPaletteTool?.color === 'b' && selectedPaletteTool?.type === t) {
+        selectedPaletteTool = null;
+      } else {
+        selectedPaletteTool = { color: 'b', type: t };
+      }
+      updateEditorPaletteUI();
+    });
+    bContainer.appendChild(bBtn);
+
+    const wBtn = document.createElement('button');
+    wBtn.type = 'button';
+    wBtn.className = 'palette-btn';
+    wBtn.dataset.color = 'w';
+    wBtn.dataset.type = t;
+    wBtn.title = `قطعة أبيض: ${t.toUpperCase()}`;
+    wBtn.innerHTML = getPieceSvg('w', t);
+    wBtn.draggable = true;
+    wBtn.addEventListener('dragstart', event => {
+      event.dataTransfer.setData('text/plain', `palette:w:${t}`);
+      event.dataTransfer.effectAllowed = 'copy';
+    });
+    wBtn.addEventListener('click', () => {
+      if (selectedPaletteTool?.color === 'w' && selectedPaletteTool?.type === t) {
+        selectedPaletteTool = null;
+      } else {
+        selectedPaletteTool = { color: 'w', type: t };
+      }
+      updateEditorPaletteUI();
+    });
+    wContainer.appendChild(wBtn);
+  }
+
+  byId('editor-trash-tool')?.addEventListener('click', () => {
+    selectedPaletteTool = selectedPaletteTool === 'trash' ? null : 'trash';
+    updateEditorPaletteUI();
+  });
+
+  byId('editor-turn-white')?.addEventListener('click', () => {
+    editorTurn = 'w';
+    updateEditorPaletteUI();
+    renderBoard();
+  });
+  byId('editor-turn-black')?.addEventListener('click', () => {
+    editorTurn = 'b';
+    updateEditorPaletteUI();
+    renderBoard();
+  });
+
+  byId('editor-clear-btn')?.addEventListener('click', () => {
+    editorPieces = {};
+    editorSelectedBoardSquare = null;
+    renderBoard();
+    status('تم إفراغ الرقعة بالكامل. اختر القطع من الشريط وضعها على المربعات.', 'info');
+  });
+
+  byId('editor-initial-btn')?.addEventListener('click', () => {
+    editorPieces = fenToPieces(START_FEN);
+    editorTurn = 'w';
+    editorSelectedBoardSquare = null;
+    updateEditorPaletteUI();
+    renderBoard();
+    status('تمت استعادة الوضعية الابتدائية.', 'info');
+  });
+
+  byId('editor-done-btn')?.addEventListener('click', applyBoardEditor);
+  byId('editor-cancel-btn')?.addEventListener('click', closeBoardEditor);
+}
+
+function updateEditorPaletteUI() {
+  document.querySelectorAll('.palette-btn').forEach(btn => {
+    const isTrash = btn.id === 'editor-trash-tool';
+    if (isTrash) {
+      btn.classList.toggle('active', selectedPaletteTool === 'trash');
+    } else {
+      const color = btn.dataset.color;
+      const type = btn.dataset.type;
+      const isActive = selectedPaletteTool && typeof selectedPaletteTool === 'object' && selectedPaletteTool.color === color && selectedPaletteTool.type === type;
+      btn.classList.toggle('active', Boolean(isActive));
+    }
+  });
+
+  byId('editor-turn-white')?.classList.toggle('active', editorTurn === 'w');
+  byId('editor-turn-black')?.classList.toggle('active', editorTurn === 'b');
+}
+
+function openBoardEditor(clear = false) {
+  if (analysisRunning) cancelAnalysis();
+  editorMode = true;
+  manualMode = false;
+  if (clear) {
+    editorPieces = {};
+    editorTurn = 'w';
+  } else {
+    const currentFen = manualMode && manualSession ? manualSession.fen : (game ? game.fens[position] : START_FEN);
+    editorPieces = fenToPieces(currentFen);
+    editorTurn = currentFen.split(' ')[1] || 'w';
+  }
+  selectedPaletteTool = null;
+  editorSelectedBoardSquare = null;
+  byId('editor-bar').hidden = false;
+  updateEditorPaletteUI();
+  renderBoard();
+  status(clear ? 'تم إفراغ الرقعة بالكامل. انقر على أي قطعة وضعها على المربعات، ثم اضغط «بدء التحليل».' : 'وضع تعديل الرقعة مفعل. انقر لوضع القطع أو حذفها بالزر الأيمن.', 'info');
+}
+
+function closeBoardEditor() {
+  editorMode = false;
+  byId('editor-bar').hidden = true;
+  if (manualSession) {
+    manualMode = true;
+  }
+  setManualControls();
+  renderBoard();
+}
+
+function applyBoardEditor() {
+  let fen = piecesToFen(editorPieces, editorTurn);
+  const placement = fen.split(' ')[0];
+  if (!placement.includes('K') || !placement.includes('k')) {
+    fen = ensureKingsInFen(fen);
+    editorPieces = fenToPieces(fen);
+  }
+  editorMode = false;
+  byId('editor-bar').hidden = true;
+  enterManualModeWithFen(fen);
+}
+
+function enterManualModeWithFen(fen) {
+  if (analysisRunning) cancelAnalysis();
+  const safeFen = ensureKingsInFen(fen);
+  manualSession = new ManualSession(safeFen);
+  manualMode = true;
+  flipped = safeFen.split(' ')[1] === 'b';
+  manualShowBest = true;
+  selectedSquare = null;
+  currentHint = null;
+  setManualControls();
+  renderBoard();
+  renderMoves();
+  requestManualEvaluation();
+  status('تم اعتماد الوضعية، وبدأ التحليل بمحرك Stockfish 19!', 'success');
+}
+
 function enterManualMode(fresh = false) {
   if (analysisRunning || hintRunning || (searchRunning && !manualSearchActive)) return;
   if (!manualMode) previousTab = byId('tab-moves-btn').classList.contains('active') ? 'moves' : 'review';
@@ -559,12 +769,117 @@ function selectManualSquare(square) {
 }
 
 function renderBoard() {
+  document.body.classList.toggle('editor-mode', editorMode);
+  const grid = byId('board');
+
+  if (editorMode) {
+    grid.replaceChildren();
+    grid.dataset.fen = piecesToFen(editorPieces, editorTurn);
+    grid.dataset.orientation = flipped ? 'black' : 'white';
+
+    const cells = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const file = 'abcdefgh'[c];
+        const rank = 8 - r;
+        const square = `${file}${rank}`;
+        cells.push({ square, r, c, piece: editorPieces[square] || null });
+      }
+    }
+    const view = flipped ? [...cells].reverse() : cells;
+
+    view.forEach((entry, i) => {
+      const sq = document.createElement('div');
+      sq.className = `square ${(entry.r + entry.c) % 2 === 0 ? 'light' : 'dark'}`;
+      sq.dataset.square = entry.square;
+      if (editorSelectedBoardSquare === entry.square) sq.classList.add('editor-selected-sq');
+
+      const file = flipped ? 'hgfedcba'[i % 8] : 'abcdefgh'[i % 8];
+      const rank = flipped ? (1 + Math.floor(i / 8)) : (8 - Math.floor(i / 8));
+      if (i % 8 === 0) {
+        const axis = document.createElement('span');
+        axis.className = 'rank-label';
+        axis.textContent = rank;
+        sq.appendChild(axis);
+      }
+      if (i >= 56) {
+        const axis = document.createElement('span');
+        axis.className = 'file-label';
+        axis.textContent = file;
+        sq.appendChild(axis);
+      }
+
+      if (entry.piece) {
+        const svgCode = getPieceSvg(entry.piece.color, entry.piece.type);
+        if (svgCode) {
+          const pieceWrap = document.createElement('div');
+          pieceWrap.className = 'piece-svg-wrap';
+          pieceWrap.dataset.piece = entry.piece.color + entry.piece.type;
+          pieceWrap.innerHTML = svgCode;
+          pieceWrap.draggable = true;
+          pieceWrap.addEventListener('dragstart', event => {
+            event.dataTransfer.setData('text/plain', `board:${entry.square}`);
+            event.dataTransfer.effectAllowed = 'move';
+          });
+          sq.appendChild(pieceWrap);
+        }
+      }
+
+      sq.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        delete editorPieces[entry.square];
+        renderBoard();
+      });
+
+      sq.addEventListener('click', () => {
+        if (selectedPaletteTool === 'trash') {
+          delete editorPieces[entry.square];
+          renderBoard();
+        } else if (selectedPaletteTool) {
+          editorPieces[entry.square] = { color: selectedPaletteTool.color, type: selectedPaletteTool.type };
+          renderBoard();
+        } else if (editorSelectedBoardSquare) {
+          editorPieces[entry.square] = editorPieces[editorSelectedBoardSquare];
+          if (editorSelectedBoardSquare !== entry.square) delete editorPieces[editorSelectedBoardSquare];
+          editorSelectedBoardSquare = null;
+          renderBoard();
+        } else if (editorPieces[entry.square]) {
+          editorSelectedBoardSquare = entry.square;
+          renderBoard();
+        }
+      });
+
+      sq.addEventListener('dragover', event => event.preventDefault());
+      sq.addEventListener('drop', event => {
+        event.preventDefault();
+        const data = event.dataTransfer.getData('text/plain');
+        if (data && data.startsWith('palette:')) {
+          const [_, color, type] = data.split(':');
+          editorPieces[entry.square] = { color, type };
+          renderBoard();
+        } else if (data && data.startsWith('board:')) {
+          const fromSquare = data.split(':')[1];
+          if (fromSquare && editorPieces[fromSquare]) {
+            editorPieces[entry.square] = editorPieces[fromSquare];
+            if (fromSquare !== entry.square) delete editorPieces[fromSquare];
+            renderBoard();
+          }
+        }
+      });
+
+      grid.appendChild(sq);
+    });
+
+    byId('move-counter').textContent = `تعديل (${Object.keys(editorPieces).length} قطع)`;
+    byId('move-description').textContent = 'وضع تعديل الرقعة: انقر أو اسحب القطع. زر الفأرة الأيمن يحذف القطعة.';
+    return;
+  }
+
   if (!manualMode && position !== lastRenderedPosition) {
     const soundedMove = game?.moves[Math.max(position, lastRenderedPosition) - 1];
     playMoveSound(Boolean(soundedMove?.captured));
     lastRenderedPosition = position;
   }
-  const grid = byId('board');
   const focusedSquare = manualMode ? document.activeElement?.closest('.square')?.dataset.square : null;
   grid.replaceChildren();
   const currentFen = manualMode ? manualSession.fen : (game ? game.fens[position] : START_FEN);
@@ -1443,6 +1758,14 @@ byId('pgn-modal-file').addEventListener('change', handleFileInput);
 byId('manual-toggle').addEventListener('click', () => manualMode ? leaveManualMode() : enterManualMode());
 byId('manual-new').addEventListener('click', () => enterManualMode(true));
 byId('manual-exit').addEventListener('click', leaveManualMode);
+
+// Clear board and editor triggers
+byId('header-clear-btn')?.addEventListener('click', () => openBoardEditor(true));
+byId('header-editor-btn')?.addEventListener('click', () => openBoardEditor(false));
+byId('board-clear-btn')?.addEventListener('click', () => openBoardEditor(true));
+byId('board-editor-btn')?.addEventListener('click', () => openBoardEditor(false));
+byId('manual-clear-btn')?.addEventListener('click', () => openBoardEditor(true));
+byId('manual-editor-btn')?.addEventListener('click', () => openBoardEditor(false));
 byId('manual-move-form').addEventListener('submit', event => {
   event.preventDefault(); playManualMove(byId('manual-move-input').value);
 });
@@ -1562,6 +1885,7 @@ new ResizeObserver(entries => {
 }).observe(byId('chart-wrap'));
 
 // Startup initialization
+initEditorPalette();
 byId('pgn-text').value = DEMO;
 loadGame(DEMO);
 enterManualMode(true);

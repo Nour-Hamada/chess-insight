@@ -23,6 +23,12 @@
         <button id="open-screenshot-btn" class="btn btn-secondary header-btn highlight-btn" type="button" title="لصق أو رفع سكرين شوت رقعة الشطرنج">
           <span>📷</span> لصق سكرين شوت
         </button>
+        <button id="header-clear-btn" class="btn btn-secondary header-btn" type="button" title="إفراغ الرقعة بالكامل لتشكيل وضعية جديدة">
+          <span>🗑️</span> إفراغ الرقعة
+        </button>
+        <button id="header-editor-btn" class="btn btn-secondary header-btn" type="button" title="وضع القطع يدوياً وتعديل الرقعة">
+          <span>🧩</span> وضع القطع
+        </button>
         <button id="manual-toggle" class="btn btn-secondary header-btn" type="button" aria-pressed="false">♟ تحليل يدوي</button>
         <button id="open-pgn-btn" class="btn btn-secondary header-btn" type="button" title="إدخال أو تعديل PGN">
           <span>📋</span> أدخل PGN
@@ -65,6 +71,40 @@
           </div>
         </div>
 
+        <!-- Editor Palette Bar -->
+        <div id="editor-bar" class="editor-bar" hidden>
+          <div class="editor-header-line">
+            <span class="editor-title">🧩 وضع الأحجار وتعديل الرقعة</span>
+            <span class="editor-subtext">اختر قطعة ثم انقر على المربع، أو اسحبها مباشرة. زر الفأرة الأيمن يحذف القطعة.</span>
+          </div>
+          <div class="editor-pieces-container">
+            <div class="editor-palette-group">
+              <span class="palette-label">الأسود:</span>
+              <div id="editor-black-pieces" class="editor-palette-row"></div>
+            </div>
+            <div class="editor-palette-group">
+              <span class="palette-label">الأبيض:</span>
+              <div id="editor-white-pieces" class="editor-palette-row"></div>
+            </div>
+            <button type="button" id="editor-trash-tool" class="palette-btn tool-trash" title="أداة الحذف (انقر على مربع لحذف القطعة منه)">
+              <span>🗑️</span>
+            </button>
+          </div>
+          <div class="editor-toolbar-actions">
+            <div class="editor-turn-group">
+              <span class="turn-label-sm">دور اللعب:</span>
+              <button type="button" id="editor-turn-white" class="editor-turn-btn active" title="دور الأبيض للعب">⚪ الأبيض</button>
+              <button type="button" id="editor-turn-black" class="editor-turn-btn" title="دور الأسود للعب">⚫ الأسود</button>
+            </div>
+            <div class="editor-action-buttons">
+              <button type="button" id="editor-clear-btn" class="btn btn-secondary btn-sm" title="إفراغ الرقعة بالكامل">🗑️ إفراغ الرقعة</button>
+              <button type="button" id="editor-initial-btn" class="btn btn-secondary btn-sm" title="الوضعية الابتدائية">🔄 وضع البداية</button>
+              <button type="button" id="editor-done-btn" class="btn btn-primary btn-sm" title="اعتماد الوضعية وبدء التحليل">🚀 بدء التحليل</button>
+              <button type="button" id="editor-cancel-btn" class="btn btn-ghost btn-sm" title="إغلاق التعديل">✕ إلغاء</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Player White Bar -->
         <div class="player-bar player-white">
           <div class="player-avatar white">♙</div>
@@ -85,6 +125,8 @@
             <button id="last-btn" class="icon-nav-btn" aria-label="آخر نقلة" title="النهاية (End)">⏭</button>
           </div>
           <button id="flip-btn" class="icon-nav-btn flip-btn" type="button" title="قلب الرقعة" aria-label="قلب الرقعة">⟳</button>
+          <button id="board-clear-btn" class="icon-nav-btn" type="button" title="إفراغ الرقعة لتشكيل وضعية جديدة" aria-label="إفراغ الرقعة">🗑️</button>
+          <button id="board-editor-btn" class="icon-nav-btn" type="button" title="وضع الأحجار وتعديل الرقعة" aria-label="تعديل الرقعة">🧩</button>
           <button id="sound-toggle" class="icon-nav-btn sound-toggle" type="button" aria-label="إيقاف صوت النقلات" aria-pressed="true" title="إيقاف صوت النقلات">🔊</button>
           <button id="hint-btn" class="btn btn-hint" type="button" title="احسب أو أظهر أفضل نقلة لهذه الوضعية">
             <span class="hint-icon">💡</span> أفضل نقلة
@@ -108,6 +150,8 @@
           </div>
           <div class="manual-actions">
             <button id="manual-new" class="btn btn-secondary" type="button">بداية جديدة</button>
+            <button id="manual-clear-btn" class="btn btn-secondary" type="button" title="إفراغ جميع المربعات">🗑️ إفراغ الرقعة</button>
+            <button id="manual-editor-btn" class="btn btn-secondary" type="button" title="وضع الأحجار وتعديل الرقعة">🧩 تعديل الرقعة</button>
             <button id="manual-exit" class="btn btn-secondary" type="button">العودة للمباراة</button>
           </div>
           <p class="manual-instructions">انقر على قطعة ثم مربع الوصول، أو اسحبها. يمكنك أيضًا كتابة النقلة أدناه.</p>
