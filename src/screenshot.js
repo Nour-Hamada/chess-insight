@@ -425,32 +425,36 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     scanStatus.className = 'screenshot-status loading';
     try {
       // A browser-side ONNX neural model detects board bounds and each piece.
-      // The screenshot itself never leaves the user's browser.
       const result = await recognizeScreenshot(file);
       if (sequence !== scanGeneration) return;
       if (result.placement) {
         gridFromPlacement(result.placement);
-            renderMiniBoardFromGrid();
+        renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح تلقائياً! حدد صاحب الدور (أبيض أو أسود) واضغط تقييم.';
-        scanStatus.className = 'screenshot-status success';
-        scanStatus.className = 'screenshot-status success';
+        const validation = validatePlacement(result.placement);
+        if (validation.ok) {
+          scanStatus.textContent = '✅ تم استخراج الوضعية بنجاح تلقائياً! حدد صاحب الدور (أبيض أو أسود) واضغط تقييم.';
+          scanStatus.className = 'screenshot-status success';
+        } else {
+          scanStatus.textContent = `⚠️ تم رصد بعض القطع: ${validation.reason} يمكنك تعديل القطع بالنقر عليها أو فتح «تعديل الرقعة».`;
+          scanStatus.className = 'screenshot-status warning';
+        }
       } else {
-        currentGrid = blankGrid(); // Never display the starting board as a detected result.
-            renderMiniBoardFromGrid();
+        currentGrid = blankGrid();
+        renderMiniBoardFromGrid();
         updateFenFromGrid();
-        scanStatus.textContent = '⚠️ ' + (result.reason || 'تعذر التعرّف بشكل موثوق.') +
-          ' اسحب مربعاً يحيط بالرقعة في الصورة لإعادة الفحص، أو أدخل القطع يدوياً.';
+        scanStatus.textContent = '⚠️ ' + (result.reason || 'تعذر التعرّف بشكل موثوق على الرقعة.') +
+          ' تأكد من وضوح الصورة، أو اسحب مربعاً حول الرقعة، أو استخدم «تعديل الرقعة».';
         scanStatus.className = 'screenshot-status warning';
       }
     } catch (error) {
       if (sequence !== scanGeneration) return;
       currentGrid = blankGrid();
-        renderMiniBoardFromGrid();
+      renderMiniBoardFromGrid();
       updateFenFromGrid();
-      scanStatus.textContent = '⚠️ تعذر تحميل نموذج التعرف البصري. تأكد من اتصال الإنترنت، ثم اضغط «إعادة فحص الأصل» أو أدخل القطع يدوياً.';
+      scanStatus.textContent = '⚠️ تعذر تحليل الصورة: ' + (error.message || 'تأكد من وضوح الصورة وتصوير الرقعة رأسياً.') + ' يمكنك استخدام «تعديل الرقعة» لوضع القطع يدوياً.';
       scanStatus.className = 'screenshot-status warning';
-      console.warn('Chess screenshot recognition unavailable:', error);
+      console.warn('Chess screenshot recognition error:', error);
     } finally {
       if (sequence === scanGeneration) {
         isScanning = false;
@@ -460,22 +464,24 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
   }
 
   function gridFromPlacement(placement) {
-    const validation = validatePlacement(placement);
-    if (!validation.ok) throw new Error(validation.reason);
-    currentGrid = placement.split('/').map(row => {
+    const rows = (placement || '').trim().split('/');
+    if (rows.length !== 8) return false;
+    currentGrid = rows.map(row => {
       const cells = [];
       for (const char of row) {
         if (/^[1-8]$/.test(char)) {
           for (let i = 0; i < Number(char); i++) cells.push(null);
-        } else {
+        } else if (/^[a-zA-Z]$/.test(char)) {
           cells.push({
             color: char === char.toUpperCase() ? 'w' : 'b',
-            type: char.toLowerCase(),
+            type: char.toLowerCase()
           });
         }
       }
-      return cells;
+      while (cells.length < 8) cells.push(null);
+      return cells.slice(0, 8);
     });
+    return true;
   }
 
   function gridToPlacement() {
