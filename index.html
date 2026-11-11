@@ -23,6 +23,9 @@
         <button id="open-screenshot-btn" class="btn btn-secondary header-btn highlight-btn" type="button" title="لصق أو رفع سكرين شوت رقعة الشطرنج">
           <span>📷</span> لصق سكرين شوت
         </button>
+        <button id="header-camera-btn" class="btn btn-secondary header-btn highlight-btn" type="button" title="فتح الكاميرا لتصوير رقعة الشطرنج فوراً">
+          <span>📸</span> تصوير بالكاميرا
+        </button>
         <button id="header-clear-btn" class="btn btn-secondary header-btn" type="button" title="إفراغ الرقعة بالكامل لتشكيل وضعية جديدة">
           <span>🗑️</span> إفراغ الرقعة
         </button>
@@ -341,13 +344,25 @@
         <!-- Dropzone / Empty State -->
         <div id="screenshot-dropzone" class="screenshot-dropzone" tabindex="0">
           <div class="dropzone-icon">📷</div>
-          <div class="dropzone-title">الصق لقطة الشاشة هنا مباشرة <strong>(Ctrl + V)</strong></div>
-          <p class="dropzone-sub">أو اسحب وأفلت صورة، أو انقر للاختيار من جهازك</p>
+          <div class="dropzone-title">التقط صورة بالكاميرا أو الصق سكرين شوت <strong>(Ctrl + V)</strong></div>
+          <p class="dropzone-sub">يمكنك التصوير مباشرة من كاميرا الموبايل أو اختيار صورة من جهازك:</p>
+          
+          <div class="dropzone-action-buttons">
+            <button type="button" id="btn-camera-capture" class="btn btn-primary dropzone-cta-btn">
+              <span>📸</span> فتح الكاميرا والتقاط صورة
+            </button>
+            <button type="button" id="btn-gallery-pick" class="btn btn-secondary dropzone-cta-btn">
+              <span>🖼️</span> اختيار صورة من المعرض
+            </button>
+          </div>
+
           <div class="dropzone-badges">
+            <span class="badge">📸 تصوير مباشر بالكاميرا</span>
             <span class="badge">Chess.com</span>
             <span class="badge">Lichess</span>
-            <span class="badge">لقطات شاشة رقمية</span>
+            <span class="badge">مخططات وكتب</span>
           </div>
+          <input id="screenshot-camera-input" type="file" accept="image/*" capture="environment" hidden />
           <input id="screenshot-file-input" type="file" accept="image/*" hidden />
         </div>
 

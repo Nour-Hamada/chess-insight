@@ -166,10 +166,40 @@ export function initScreenshotFeature({ onApplyFen, onStatus }) {
     }
   });
 
-  dropzone.addEventListener('click', () => fileInput.click());
+  const cameraInput = document.getElementById('screenshot-camera-input');
+  const btnCameraCapture = document.getElementById('btn-camera-capture');
+  const btnGalleryPick = document.getElementById('btn-gallery-pick');
+
+  if (btnCameraCapture && cameraInput) {
+    btnCameraCapture.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cameraInput.click();
+    });
+  }
+
+  if (btnGalleryPick && fileInput) {
+    btnGalleryPick.addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+  }
+
+  dropzone.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    fileInput.click();
+  });
+
+  cameraInput?.addEventListener('change', () => {
+    if (cameraInput.files && cameraInput.files.length > 0) {
+      if (!modal.open) modal.showModal();
+      handleImageInput(cameraInput.files[0]);
+      cameraInput.value = '';
+    }
+  });
 
   fileInput.addEventListener('change', () => {
     if (fileInput.files && fileInput.files.length > 0) {
+      if (!modal.open) modal.showModal();
       handleImageInput(fileInput.files[0]);
       fileInput.value = '';
     }

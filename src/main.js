@@ -1760,6 +1760,14 @@ byId('manual-new').addEventListener('click', () => enterManualMode(true));
 byId('manual-exit').addEventListener('click', leaveManualMode);
 
 // Clear board and editor triggers
+byId('header-camera-btn')?.addEventListener('click', () => {
+  const cameraInput = byId('screenshot-camera-input');
+  if (cameraInput) {
+    cameraInput.click();
+  } else {
+    byId('screenshot-modal')?.showModal();
+  }
+});
 byId('header-clear-btn')?.addEventListener('click', () => openBoardEditor(true));
 byId('header-editor-btn')?.addEventListener('click', () => openBoardEditor(false));
 byId('board-clear-btn')?.addEventListener('click', () => openBoardEditor(true));
